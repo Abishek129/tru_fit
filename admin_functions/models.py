@@ -111,18 +111,4 @@ class Testimonial(models.Model):
 
 
 
-class Coach_Profile(models.Model):
-    name = models.CharField(max_length=300)
-    image = models.ImageField(upload_to='coach_images/', blank=True, null=True)
-    experience = models.DigitFiled()
-    
-
-    # PDF upload only
-    
-    content = models.FileField(
-        upload_to='blog_pdfs/',
-        validators=[FileExtensionValidator(allowed_extensions=['pdf'])]
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
