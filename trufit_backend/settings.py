@@ -15,10 +15,10 @@ from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-#load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     
     'corsheaders',
     'admin_functions',
+    'storages',
     
     
     
@@ -109,11 +110,14 @@ import dj_database_url
 
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600,
-        ssl_require=True
-    )
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+    }
 }
 
 
@@ -191,14 +195,24 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
-MEDIA_URL = '/media/'
-import os
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_S3_BUCKET_NAME")
+AWS_S3_REGION_NAME = os.getenv("AWS_REGION", "ap-south-1")
+AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
 
+# CRITICAL: don't send ACLs when uploading
+AWS_DEFAULT_ACL = None
 
+# Optional but useful
+AWS_QUERYSTRING_AUTH = False
+AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+AWS_S3_SIGNATURE_VERSION = "s3v4"
 
-STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+# Use S3 for static & media (adjust module path)
+STATICFILES_STORAGE = "trufit_backend.storages.StaticRootS3Boto3Storage"
+DEFAULT_FILE_STORAGE = "trufit_backend.storages.MediaRootS3Boto3Storage"
+
+STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+MEDIA_URL  = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
 
 
 # Default primary key field type

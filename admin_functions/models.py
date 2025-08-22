@@ -111,4 +111,135 @@ class Testimonial(models.Model):
 
 
 
+class CoachProfile(models.Model):
+    COACH_LEVEL_CHOICES = [
+        ('junior', 'JUNIOR'),
+        ('senior', 'SENIOR'),
+        ('elite', 'ELITE'),
+    ]
+    GENDER_CHOICES = [
+        ('male', 'MALE'),
+        ('female', 'FEMALE'),
+        ('others', 'OTHERS'),
+    ]
+    INTENSITY_CHOICES = [
+        (1, 'Not intense'),
+        (2, 'A little intense'),
+        (3, 'Somewhat intense'),
+        (4, 'Intense'),
+        (5, 'Very intense'),
+    ]
+
+    name = models.CharField(max_length=300)
+    image = models.ImageField(upload_to='CoachProfile/', blank=True, null=True)
+    gender = models.CharField(max_length=15, choices=GENDER_CHOICES, blank= True, null= True)
+    experience = models.DecimalField(max_digits=5, decimal_places=2)
+    coach_level = models.CharField(max_length=13, choices=COACH_LEVEL_CHOICES)
+    intensity_level = models.IntegerField(choices=INTENSITY_CHOICES, default=3)  # Added
+    specialties = models.JSONField(blank=True, null=True)  # For goals
+    personality_traits = models.JSONField(blank=True, null=True)  # For style
+    bio = models.TextField(blank=True, null=True)
+    calendly_link = models.URLField(max_length=500, blank=True, null=True)
+    bullet_points = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+class CoachCertification(models.Model):  # better to keep singular
+    coach = models.ForeignKey(
+        CoachProfile,
+        on_delete=models.CASCADE,
+        related_name='certifications'
+    )
+    certificate = models.CharField(max_length=100)  # 20 might be too short
+
+    def __str__(self):
+        return f"{self.coach.name} - {self.certificate}"
+    
+
+
+    
+
+#from django.core.validators import RegexValidator
+from django.utils import timezone
+
+
+from django.core.validators import RegexValidator
+
+
+class ClientDetails(models.Model):
+    PAYMENT_CHOICES = [
+        ('razorpay', 'RAZORPAY'),
+        ('cashfree', 'CASHFREE'),
+    ]
+    PLAN_CHOICES = [
+        (3, '3 MONTHS'),
+        (6, '6 MONTHS'),
+    ]
+
+    name = models.CharField(max_length=300)
+    email = models.EmailField(max_length=300)
+    phone_number = models.CharField(
+        max_length=17,
+        validators=[RegexValidator(r'^\+?\d{7,15}$', 'Enter a valid phone number.')]
+    )
+    coach = models.ForeignKey(
+        'CoachProfile',
+        on_delete=models.CASCADE,
+        related_name='clients'
+    )
+    residence = models.CharField(max_length=100, blank=True, null=True)
+    created_date = models.DateTimeField(default=timezone.now)  # or auto_now_add=True
+    payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
+    plan = models.PositiveSmallIntegerField(choices=PLAN_CHOICES)
+
+    def __str__(self):
+        return self.name
+
+
+
+from django.core.validators import MinValueValidator
+from decimal import Decimal
+
+
+class Plans(models.Model):
+    CATEGORY_CHOICES = [
+        ('junior', 'JUNIOR'),
+        ('senior', 'SENIOR'),   # normalized label case
+        ('elite',  'ELITE'),
+    ]
+    LOCATION_CHOICES = [
+        ('domestic',      'DOMESTIC'),
+        ('international', 'INTERNATIONAL'),
+    ]
+
+    category = models.CharField(max_length=12, choices=CATEGORY_CHOICES)
+    location = models.CharField(max_length=20, choices=LOCATION_CHOICES)
+
+    short_term_price = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    long_term_price = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+    consultation_call_price = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))]
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['category', 'location'],
+                name='uniq_plan_category_location'
+            )
+        ]
+
+    def __str__(self):
+        # show human labels
+        return f"{self.get_category_display()} - {self.get_location_display()}"
+    
+
 
