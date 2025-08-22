@@ -42,6 +42,8 @@ class TestimonialSerializer(serializers.ModelSerializer):
             "image",
             "body",      
             "image_url",
+            "age",
+            "tags",
             
             "created_at",
             "updated_at",

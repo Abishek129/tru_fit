@@ -102,6 +102,8 @@ class Testimonial(models.Model):
     image = models.ImageField(upload_to='testimonial_images/', blank=True, null=True)
     # PDF upload only
     body = models.TextField()
+    age = models.CharField(max_length=5, blank=True, null=True)
+    tags = models.CharField(max_length=20, blank=True, null = True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
