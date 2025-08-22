@@ -12,6 +12,7 @@ class BlogSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "image",
+            "tag",
             "content",       # PDF file
             "image_url",
             "content_url",

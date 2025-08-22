@@ -77,6 +77,7 @@ from django.core.validators import FileExtensionValidator
 class Blog(models.Model):
     title = models.CharField(max_length=300)
     image = models.ImageField(upload_to='blog_images/', blank=True, null=True)
+    tag = models.CharField(max_length=300, blank=True, null=True)
     # PDF upload only
     content = models.FileField(
         upload_to='blog_pdfs/',
