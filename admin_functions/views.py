@@ -8,6 +8,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plans
 from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer
 from rest_framework.permissions import AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 class BlogViewSet(viewsets.ModelViewSet):
     """
@@ -40,12 +41,18 @@ from django.shortcuts import get_object_or_404
 
 
 class CoachProfileViewSet(viewsets.ModelViewSet):
-    
     queryset = CoachProfile.objects.all().order_by('id')
     serializer_class = CoachProfileSerializer
     permission_classes = [permissions.AllowAny]
+
+    # ✅ allow file uploads + JSON fields in the same request
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    # 🔎 searchable fields (removed non-existent bullet_points)
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'coach_level', 'bio', 'bullet_points']
+    search_fields = ['name', 'coach_level', 'bio', 'tags', 'location', 'specializations']
+
+    # ↕ ordering
     ordering_fields = ['id', 'name', 'experience', 'coach_level']
 
 

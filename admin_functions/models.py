@@ -138,7 +138,7 @@ class CoachProfile(models.Model):
     intensity_level = models.IntegerField(choices=INTENSITY_CHOICES, default=3)  # Added
     specializations = models.TextField(blank=True, null=True)
     specialties = models.JSONField(blank=True, null=True)  # For goals
-    tags = models.CharField(max_length=20, blank=True, null=True)
+    tags = models.CharField(max_length=200, blank=True, null=True)
     personality_traits = models.JSONField(blank=True, null=True)  # For style
     bio = models.TextField(blank=True, null=True)
     calendly_link = models.URLField(max_length=500, blank=True, null=True)
