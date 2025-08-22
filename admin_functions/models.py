@@ -136,13 +136,16 @@ class CoachProfile(models.Model):
     experience = models.DecimalField(max_digits=5, decimal_places=2)
     coach_level = models.CharField(max_length=13, choices=COACH_LEVEL_CHOICES)
     intensity_level = models.IntegerField(choices=INTENSITY_CHOICES, default=3)  # Added
-
+    specializations = models.TextField(blank=True, null=True)
     specialties = models.JSONField(blank=True, null=True)  # For goals
     tags = models.CharField(max_length=20, blank=True, null=True)
     personality_traits = models.JSONField(blank=True, null=True)  # For style
     bio = models.TextField(blank=True, null=True)
     calendly_link = models.URLField(max_length=500, blank=True, null=True)
-    bullet_points = models.TextField(blank=True, null=True)
+    location = models.CharField(max_length=50, blank=True, null=True)
+    
+    approach = models.TextField(blank=True, null=True)
+    previous_work = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
