@@ -71,7 +71,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'image', 'gender', 'experience', 'coach_level',
             'intensity_level', 'specialties','tags','location', 'previous_work', 'approach','specializations','personality_traits',
-            'bio', 'calendly_link', 'certifications'
+            'bio', 'calendly_link', 'certifications', 'summary'
         ]
 
     def _normalize_certs(self, certs):
