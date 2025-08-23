@@ -154,10 +154,10 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
 
     # display labels
     payment_mode_display = serializers.CharField(source="get_payment_mode_display", read_only=True)
-    plan_display = serializers.CharField(source="get_plan_display", read_only=True)
+    plan = serializers.IntegerField() 
 
     # ensure plan respects your IntegerChoices (1, 12, 24)
-    plan = serializers.ChoiceField(choices=ClientDetails.Plan.choices)
+    
 
     class Meta:
         model = ClientDetails
@@ -173,7 +173,7 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
             "payment_mode",            # read-only; set server-side
             "payment_mode_display",
             "plan",
-            "plan_display",
+            
             "payment_status",          # read-only; set by your payment flow
         ]
         read_only_fields = ["created_date", "payment_mode", "payment_status"]
