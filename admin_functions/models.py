@@ -177,13 +177,19 @@ from django.core.validators import RegexValidator
 
 
 class ClientDetails(models.Model):
+    class Plan(models.IntegerChoices):
+        CALL = 1, 'CALL'
+        WEEKS_12 = 12, '12 WEEKS'
+        WEEKS_24 = 24, '24 WEEKS'
+
     PAYMENT_CHOICES = [
         ('razorpay', 'RAZORPAY'),
         ('cashfree', 'CASHFREE'),
     ]
-    PLAN_CHOICES = [
-        (3, '3 MONTHS'),
-        (6, '6 MONTHS'),
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
     ]
 
     name = models.CharField(max_length=300)
@@ -192,15 +198,12 @@ class ClientDetails(models.Model):
         max_length=17,
         validators=[RegexValidator(r'^\+?\d{7,15}$', 'Enter a valid phone number.')]
     )
-    coach = models.ForeignKey(
-        'CoachProfile',
-        on_delete=models.CASCADE,
-        related_name='clients'
-    )
+    coach = models.ForeignKey('CoachProfile', on_delete=models.CASCADE, related_name='clients')
     residence = models.CharField(max_length=100, blank=True, null=True)
-    created_date = models.DateTimeField(default=timezone.now)  # or auto_now_add=True
+    created_date = models.DateTimeField(default=timezone.now)
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
-    plan = models.PositiveSmallIntegerField(choices=PLAN_CHOICES)
+    plan = models.PositiveSmallIntegerField(choices=Plan.choices)
+    payment_status = models.CharField(max_length=100, choices=PAYMENT_STATUS_CHOICES, default="pending")
 
     def __str__(self):
         return self.name
@@ -237,6 +240,7 @@ class Plans(models.Model):
         max_digits=10, decimal_places=2,
         validators=[MinValueValidator(Decimal('0.00'))]
     )
+
 
     class Meta:
         constraints = [

@@ -139,19 +139,25 @@ class CoachProfileSerializer(serializers.ModelSerializer):
 
 
 class CoachMiniSerializer(serializers.ModelSerializer):
+    # Optional: also expose display label if you want uppercase ("JUNIOR", etc.)
+    coach_level_display = serializers.CharField(source="get_coach_level_display", read_only=True)
+
     class Meta:
         model = CoachProfile
-        fields = ["id", "name", "coach_level", "image"]
+        fields = ["id", "name", "coach_level", "coach_level_display", "image"]
 
 
 class ClientDetailsSerializer(serializers.ModelSerializer):
-    # write: coach as PK; read: include nested details too
+    # write: coach as PK; read: include nested details
     coach = serializers.PrimaryKeyRelatedField(queryset=CoachProfile.objects.all())
     coach_detail = CoachMiniSerializer(source="coach", read_only=True)
 
-    # nice-to-have display labels for choices
+    # display labels
     payment_mode_display = serializers.CharField(source="get_payment_mode_display", read_only=True)
     plan_display = serializers.CharField(source="get_plan_display", read_only=True)
+
+    # ensure plan respects your IntegerChoices (1, 12, 24)
+    plan = serializers.ChoiceField(choices=ClientDetails.Plan.choices)
 
     class Meta:
         model = ClientDetails
@@ -160,16 +166,23 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
             "name",
             "email",
             "phone_number",
-            "coach",            # send coach id when creating/updating
-            "coach_detail",     # nested coach info in responses
+            "coach",
+            "coach_detail",
             "residence",
-            "created_date",     # read-only (auto filled)
-            "payment_mode",
+            "created_date",
+            "payment_mode",            # read-only; set server-side
             "payment_mode_display",
             "plan",
             "plan_display",
+            "payment_status",          # read-only; set by your payment flow
         ]
-        read_only_fields = ["created_date"]
+        read_only_fields = ["created_date", "payment_mode", "payment_status"]
+
+    def create(self, validated_data):
+        # force Razorpay here so client doesn’t have to send it
+        validated_data.setdefault("payment_mode", "razorpay")
+        return super().create(validated_data)
+
 
 
 
