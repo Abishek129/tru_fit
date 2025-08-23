@@ -380,7 +380,7 @@ import requests
 
 
 def cf_base_url():
-    env = getattr(settings, "CASHFREE_ENV", "TEST")
+    env = getattr(settings, "CASHFREE_ENV", "sandbox")
     return "https://api.cashfree.com/pg" if env.upper() == "PROD" else "https://sandbox.cashfree.com/pg"
 
 def cf_headers():
@@ -551,6 +551,48 @@ class CPaymentVerificationView(APIView):
             return Response({"error": "Verification failed", "details": str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+import hmac, hashlib, json
+
+from django.utils.decorators import method_decorator
+
+@method_decorator(csrf_exempt, name="dispatch")
+class CPaymentWebhookView(APIView):
+    permission_classes = []  # AllowAny
+
+    def post(self, request):
+        raw_body = request.body
+        signature = request.headers.get("x-webhook-signature", "")
+
+        # Verify signature
+        secret = getattr(settings, "CASHFREE_WEBHOOK_SECRET", "")
+        computed_sig = hmac.new(
+            key=bytes(secret, "utf-8"),
+            msg=raw_body,
+            digestmod=hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(computed_sig, signature):
+            return Response({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payload = json.loads(raw_body.decode("utf-8"))
+        order = payload.get("data", {}).get("order", {})
+        order_id = order.get("order_id")
+        order_status = order.get("order_status")  # e.g. PAID, ACTIVE, EXPIRED
+
+        # If you embedded client_id in order_id when creating
+        if order_status == "PAID" and order_id.startswith("client_"):
+            try:
+                client_id = int(order_id.split("_")[1])
+                client = ClientDetails.objects.filter(id=client_id).first()
+                if client and client.payment_status != "paid":
+                    client.payment_status = "paid"
+                    client.save(update_fields=["payment_status"])
+            except Exception:
+                pass
+
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
 
     
