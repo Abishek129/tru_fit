@@ -334,7 +334,7 @@ class RPaymentVerificationView(APIView):
 
 
 
-
+from django.conf import settings
 
 class CBuyNowAPIView(APIView):
     permission_classes = [AllowAny]
@@ -386,6 +386,8 @@ def cf_base_url():
 def cf_headers():
     app_id = getattr(settings, "CASHFREE_APP_ID", None)
     secret_key = getattr(settings, "CASHFREE_SECRET_KEY", None)
+    #app_id = 'TEST1075764518edc93e0b0472e97bc454675701'
+    #secret_key = 'cfsk_ma_test_919291d7ad754e51353090985ac53694_1c8009c4'
     if not app_id or not secret_key:
         raise ValueError("Cashfree keys are not configured on the server.")
     return {
@@ -405,7 +407,7 @@ class CPaymentInitializationView(APIView):
     def post(self, request, client_id):
         try:
             client = get_object_or_404(ClientDetails, id=client_id)
-
+            print(getattr(settings, "CASHFREE_SECRET_KEY", None))
             # Block repeat payments
             if client.payment_status == "paid":
                 return Response({"error": "Payment already completed for this client."},
@@ -443,10 +445,7 @@ class CPaymentInitializationView(APIView):
                     "customer_phone": (client.phone_number or "").strip()[:15],
                 },
                 # Optional: show success page and/or have Cashfree call this notify URL
-                "order_meta": {
-                    # "return_url": "https://your-frontend/success?order_id={order_id}",
-                    # "notify_url": "https://your-backend/api/payments/cashfree/webhook/",
-                },
+                
                 "order_note": f"Plan {client.plan} months | Coach: {category} | Loc: {location}",
             }
 
@@ -488,6 +487,7 @@ class CPaymentInitializationView(APIView):
             }, status=status.HTTP_200_OK)
 
         except (InvalidOperation, ValueError) as e:
+            
             return Response({"error": "Amount computation failed", "details": str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
