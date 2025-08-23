@@ -551,7 +551,7 @@ class CPaymentVerificationView(APIView):
             return Response({"error": "Verification failed", "details": str(e)},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-import json, hmac, hashlib, base64, logging
+import json, hmac, hashlib, base64, time, logging
 from django.conf import settings
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -562,11 +562,20 @@ from .models import ClientDetails
 
 log = logging.getLogger("cashfree.webhook")
 
-def hmac_hex(secret, msg):  # hex
-    return hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest()
+# --- simple idempotency cache (swap with Redis/DB in production) ---
+_IDEMPOTENCY_SEEN = {}  # key -> ts
 
-def hmac_b64(secret, msg):  # base64
-    return base64.b64encode(hmac.new(secret.encode(), msg, hashlib.sha256).digest()).decode()
+def _b64_hmac_sha256(secret: str, msg_bytes: bytes) -> str:
+    digest = hmac.new(secret.encode("utf-8"), msg_bytes, hashlib.sha256).digest()
+    return base64.b64encode(digest).decode("utf-8")
+
+def _within_skew(ts_str: str, skew_sec: int = 10 * 60) -> bool:
+    try:
+        now = int(time.time())
+        ts = int(ts_str)
+        return abs(now - ts) <= skew_sec
+    except Exception:
+        return True  # if header missing or unparsable, don’t block during bring-up
 
 @method_decorator(csrf_exempt, name="dispatch")
 class CPaymentWebhookView(APIView):
@@ -574,54 +583,85 @@ class CPaymentWebhookView(APIView):
     permission_classes = []
 
     def post(self, request):
+        # --- 1) Basic header & secret checks ---
         secret = getattr(settings, "CASHFREE_WEBHOOK_SECRET", None)
         if not secret:
             log.error("Webhook secret not configured")
-            return Response({"error":"secret not set"}, status=400)
+            return Response({"error": "secret not configured"}, status=500)
 
         raw = request.body or b""
-        sig = request.headers.get("x-webhook-signature", "")
-        ts  = request.headers.get("x-webhook-timestamp", "")
+        sig_hdr = request.headers.get("x-webhook-signature", "")
+        ts_hdr = request.headers.get("x-webhook-timestamp", "")            # optional
+        v_hdr  = request.headers.get("x-webhook-version", "")              # e.g., 2025-01-01
+        idem   = request.headers.get("x-idempotency-key", "")              # base64 string
 
-        # Try in this order: b64(body), hex(body), b64(ts+body), hex(ts+body)
-        candidates = [
-            ("b64(body)", hmac_b64(secret, raw)),
-            ("hex(body)", hmac_hex(secret, raw)),
-        ]
-        if ts:
-            msg = (ts + raw.decode("utf-8", "ignore")).encode()
-            candidates += [
-                ("b64(ts+body)", hmac_b64(secret, msg)),
-                ("hex(ts+body)", hmac_hex(secret, msg)),
-            ]
+        if not sig_hdr:
+            return Response({"error": "missing signature"}, status=400)
 
-        matched = next((name for name, val in candidates if val == sig), None)
-        if not matched:
-            log.warning("CF webhook: signature mismatch. got=%s candidates=%s", sig, candidates)
-            return Response({"error":"invalid signature"}, status=400)
-        log.info("CF webhook: signature OK via %s", matched)
+        # Optional: reject very old webhooks
+        if ts_hdr and not _within_skew(ts_hdr):
+            return Response({"error": "timestamp skew"}, status=400)
 
+        # --- 2) Verify signature (Base64(HMAC_SHA256(body))) ---
+        expected = _b64_hmac_sha256(secret, raw)
+        if sig_hdr != expected:
+            # Some accounts/extensions sign (timestamp + body). If yours does, uncomment:
+            # alt = _b64_hmac_sha256(secret, (ts_hdr + raw.decode("utf-8", "ignore")).encode("utf-8"))
+            # if sig_hdr != alt:
+            log.warning("Signature mismatch (ver=%s)", v_hdr)
+            return Response({"error": "invalid signature"}, status=400)
+
+        # --- 3) Idempotency: drop duplicates ---
+        if idem:
+            if idem in _IDEMPOTENCY_SEEN:
+                return Response({"status": "duplicate"}, status=200)
+            _IDEMPOTENCY_SEEN[idem] = time.time()
+
+        # --- 4) Parse body safely (keep raw text for HMAC) ---
         try:
             payload = json.loads(raw.decode("utf-8"))
         except Exception:
-            return Response({"error":"bad json"}, status=400)
+            return Response({"error": "bad json"}, status=400)
 
-        order = (payload.get("data") or {}).get("order") or {}
-        order_id = order.get("order_id")
-        status_str = order.get("order_status")  # e.g., PAID/ACTIVE/EXPIRED
-        log.info("CF webhook: order_id=%s status=%s", order_id, status_str)
+        event_type = payload.get("type")  # e.g., PAYMENT_SUCCESS_WEBHOOK, PAYMENT_FAILED_WEBHOOK, PAYMENT_USER_DROPPED_WEBHOOK
+        data = payload.get("data") or {}
+        order = data.get("order") or {}
+        payment = data.get("payment") or {}
+        customer = data.get("customer_details") or {}
 
+        order_id = order.get("order_id")                   # ex: "order_OFR_2" or your custom one
+        order_amt = order.get("order_amount")
+        order_cur = order.get("order_currency")
+        p_status = payment.get("payment_status")           # SUCCESS | FAILED | USER_DROPPED
+        cf_payment_id = payment.get("cf_payment_id")
+        p_msg = payment.get("payment_message")
+
+        log.info("CF webhook v=%s type=%s order_id=%s p_status=%s cf_payment_id=%s",
+                 v_hdr, event_type, order_id, p_status, cf_payment_id)
+
+        # --- 5) Map your order_id back to a client (you were using client_<id>_...) ---
+        client_obj = None
         client_id = None
         if order_id and order_id.startswith("client_"):
             parts = order_id.split("_")
             if len(parts) >= 2 and parts[1].isdigit():
                 client_id = int(parts[1])
+                client_obj = ClientDetails.objects.filter(id=client_id).first()
 
-        if status_str == "PAID" and client_id:
-            client = ClientDetails.objects.filter(id=client_id).first()
-            if client and client.payment_status != "paid":
-                client.payment_status = "paid"
-                client.save(update_fields=["payment_status"])
-                log.info("Client %s marked paid", client_id)
+        # --- 6) Act on status ---
+        if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
+            if client_obj and client_obj.payment_status != "paid":
+                client_obj.payment_status = "paid"
+                client_obj.save(update_fields=["payment_status"])
+                log.info("Client %s marked PAID (amount=%s %s)", client_id, order_amt, order_cur)
+            return Response({"ok": True}, status=200)
 
+        # Not paid cases (FAILED / USER_DROPPED). You can log or set a field if you track failures.
+        if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
+            log.info("Payment not completed: %s (%s)", p_status, p_msg)
+            # Optionally: persist last failure reason on the client/order model.
+            return Response({"ok": True}, status=200)
+
+        # Unknown event type—acknowledge to stop retries, but log for review.
+        log.warning("Unhandled webhook type: %s", event_type)
         return Response({"ok": True}, status=200)
