@@ -678,10 +678,12 @@ def cashfree_webhook(request):
             if len(parts) >= 2 and parts[1].isdigit():
                 client_id = int(parts[1])
                 client_obj = ClientDetails.objects.filter(id=client_id).first()
+        
 
-
-        client_obj.status = order_status
-        client_obj.save()
-    
-        return JsonResponse({"message": "Webhook received"}, status=200)
+                client_obj.status = order_status
+                client_obj.save()
+            
+                return JsonResponse({"message": "Webhook received"}, status=200)
+        else :
+            return JsonResponse({"message": "Webhook Failed"}, status=200)
     return JsonResponse({"detail": "Only POST"}, status=405)
