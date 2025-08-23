@@ -386,8 +386,7 @@ def cf_base_url():
 def cf_headers():
     app_id = getattr(settings, "CASHFREE_APP_ID", None)
     secret_key = getattr(settings, "CASHFREE_SECRET_KEY", None)
-    #app_id = 'TEST1075764518edc93e0b0472e97bc454675701'
-    #secret_key = 'cfsk_ma_test_919291d7ad754e51353090985ac53694_1c8009c4'
+
     if not app_id or not secret_key:
         raise ValueError("Cashfree keys are not configured on the server.")
     return {
