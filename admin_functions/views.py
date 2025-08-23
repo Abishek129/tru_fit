@@ -552,48 +552,86 @@ class CPaymentVerificationView(APIView):
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
-import hmac, hashlib, json
-
+import json, hmac, hashlib, base64, logging
+from django.conf import settings
 from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import ClientDetails
+
+log = logging.getLogger("cashfree.webhook")
+
+def _hmac_hex(secret: str, msg_bytes: bytes) -> str:
+    # hex lowercase
+    return hmac.new(secret.encode("utf-8"), msg_bytes, hashlib.sha256).hexdigest()
+
+def _hmac_b64(secret: str, msg_bytes: bytes) -> str:
+    # base64
+    digest = hmac.new(secret.encode("utf-8"), msg_bytes, hashlib.sha256).digest()
+    return base64.b64encode(digest).decode("utf-8")
 
 @method_decorator(csrf_exempt, name="dispatch")
 class CPaymentWebhookView(APIView):
-    permission_classes = []  # AllowAny
+    authentication_classes = []  # AllowAny
+    permission_classes = []
 
     def post(self, request):
-        raw_body = request.body
-        signature = request.headers.get("x-webhook-signature", "")
-
-        # Verify signature
         secret = getattr(settings, "CASHFREE_WEBHOOK_SECRET", "")
-        computed_sig = hmac.new(
-            key=bytes(secret, "utf-8"),
-            msg=raw_body,
-            digestmod=hashlib.sha256
-        ).hexdigest()
+        if not secret:
+            log.error("Webhook secret not configured")
+            return Response({"error": "server misconfig"}, status=500)
 
-        if not hmac.compare_digest(computed_sig, signature):
-            return Response({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
+        raw = request.body or b""
+        sig_hdr = request.headers.get("x-webhook-signature", "")
+        ts_hdr = request.headers.get("x-webhook-timestamp", "")
 
-        payload = json.loads(raw_body.decode("utf-8"))
-        order = payload.get("data", {}).get("order", {})
+        # ---- Debug logging (safe) ----
+        log.info("CF webhook headers: sig=%s ts=%s ua=%s", sig_hdr, ts_hdr, request.headers.get("User-Agent"))
+        log.info("CF webhook raw len=%s", len(raw))
+
+        # ---- Try verification: (1) body-only hex, (2) body-only b64, (3) ts+body hex, (4) ts+body b64 ----
+        candidates = []
+        candidates.append(_hmac_hex(secret, raw))
+        candidates.append(_hmac_b64(secret, raw))
+        if ts_hdr:
+            msg_ts_body = (ts_hdr + raw.decode("utf-8", errors="ignore")).encode("utf-8")
+            candidates.append(_hmac_hex(secret, msg_ts_body))
+            candidates.append(_hmac_b64(secret, msg_ts_body))
+
+        if not sig_hdr or sig_hdr not in candidates:
+            log.warning("Invalid signature. provided=%s candidates=%s", sig_hdr, candidates)
+            return Response({"error": "Invalid signature"}, status=400)
+
+        # ---- Parse payload ----
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except Exception as e:
+            log.exception("JSON parse failed")
+            return Response({"error": "bad json"}, status=400)
+
+        # Cashfree Payments webhooks typically include order data like:
+        # payload["data"]["order"]["order_id"], payload["data"]["order"]["order_status"]
+        order = (payload.get("data") or {}).get("order") or {}
         order_id = order.get("order_id")
-        order_status = order.get("order_status")  # e.g. PAID, ACTIVE, EXPIRED
+        order_status = order.get("order_status")  # e.g., "PAID", "ACTIVE", "EXPIRED"
+        log.info("CF webhook order_id=%s status=%s", order_id, order_status)
 
-        # If you embedded client_id in order_id when creating
-        if order_status == "PAID" and order_id.startswith("client_"):
-            try:
-                client_id = int(order_id.split("_")[1])
-                client = ClientDetails.objects.filter(id=client_id).first()
-                if client and client.payment_status != "paid":
-                    client.payment_status = "paid"
-                    client.save(update_fields=["payment_status"])
-            except Exception:
-                pass
+        # If you constructed order_id as "client_<id>_<timestamp>", extract client id:
+        client_id = None
+        if order_id and order_id.startswith("client_"):
+            parts = order_id.split("_")
+            if len(parts) >= 2 and parts[1].isdigit():
+                client_id = int(parts[1])
 
-        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+        # Mark paid only when PAID
+        if order_status == "PAID" and client_id:
+            client = ClientDetails.objects.filter(id=client_id).first()
+            if client and client.payment_status != "paid":
+                client.payment_status = "paid"
+                client.save(update_fields=["payment_status"])
+                log.info("Client %s marked paid", client_id)
 
-
-    
-    
+        # Always 200 after successful processing
+        return Response({"status": "ok"}, status=2)
