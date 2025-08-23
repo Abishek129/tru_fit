@@ -685,5 +685,5 @@ def cashfree_webhook(request):
             
                 return JsonResponse({"message": "Webhook received"}, status=200)
         else :
-            return JsonResponse({"message": "Webhook Failed"}, status=200)
+            return JsonResponse({"message": "Webhook Failed"}, status=400)
     return JsonResponse({"detail": "Only POST"}, status=405)
