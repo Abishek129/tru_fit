@@ -419,9 +419,9 @@ class CPaymentInitializationView(APIView):
             # Amount (1, 3, or 6 months)
             if client.plan == 1:
                 amount_dec = plan_row.consultation_call_price
-            elif client.plan == 3:
+            elif client.plan == 2:
                 amount_dec = plan_row.short_term_price
-            elif client.plan == 6:
+            elif client.plan == 3:
                 amount_dec = plan_row.long_term_price
             else:
                 return Response({"error": "Invalid plan.", "client_plan": client.plan}, status=status.HTTP_400_BAD_REQUEST)
