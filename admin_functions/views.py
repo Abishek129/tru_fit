@@ -665,3 +665,23 @@ class CPaymentWebhookView(APIView):
         # Unknown event type—acknowledge to stop retries, but log for review.
         log.warning("Unhandled webhook type: %s", event_type)
         return Response({"ok": True}, status=200)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+def cashfree_webhook(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        order_id = data.get("order_id")
+        order_status = data.get("order_status")
+        if order_id and order_id.startswith("client_"):
+            parts = order_id.split("_")
+            if len(parts) >= 2 and parts[1].isdigit():
+                client_id = int(parts[1])
+                client_obj = ClientDetails.objects.filter(id=client_id).first()
+
+
+        client_obj.status = order_status
+        client_obj.save()
+    
+        return JsonResponse({"message": "Webhook received"}, status=200)
+    return JsonResponse({"detail": "Only POST"}, status=405)
