@@ -176,15 +176,12 @@ class RBuyNowAPIView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         
-from django.template.loader import render_to_string
-from django.core.mail import send_mail
-import razorpay
-from django.shortcuts import get_object_or_404
-from django.shortcuts import get_object_or_404
-from rest_framework.permissions import AllowAny
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+
+
+
+
+
+
 from decimal import Decimal, InvalidOperation
 import razorpay
 from django.conf import settings
@@ -288,20 +285,21 @@ class RPaymentVerificationView(APIView):
 
     def post(self, request):
         # Extract payment details
-        order_id = request.data.get("order_id")
+        client_id = request.data.get("client_id")
         razorpay_order_id = request.data.get("razorpay_order_id")
         payment_id = request.data.get("razorpay_payment_id")
         signature = request.data.get("razorpay_signature")
 
-        if not all([order_id, payment_id, signature]):
+        if not all([client_id, payment_id, signature]):
             return Response({"error": "Incomplete payment details provided."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Fetch the order
-        order = get_object_or_404(ClientDetails, id=order_id)
+        client = get_object_or_404(ClientDetails, id=client_id)
 
-        
+        key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
+        key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)        
         # Verify the Razorpay payment signature
-        razorpay_client = razorpay.Client(auth=("rzp_test_EVswR8OHh71h2F", "PY7vpZUFrdPBupe01k8fJb7F"))
+        razorpay_client = razorpay.Client(auth=(key_id, key_secret))
         try:
             razorpay_client.utility.verify_payment_signature(
                 {
@@ -312,22 +310,13 @@ class RPaymentVerificationView(APIView):
             )
             # Update the order's payment status
             
-            order.payment_status = "paid"
+            client.payment_status = "paid"
             
             
-            #order.order_status = "placed"
-            print(order.order_status)
-            order.save()
 
-            # Update payment status for related order items
-            #update_payment_status.delay(order_id)
+            client.save()
 
-            # Trigger the email task
-            #send_order_placed_email.delay(order.id)
-            #if order.payable_amount < order.total_price:
-            #    customer = CustomerProfile.objects.get(user = request.user)
-            #    customer.wallet = 0
-            #    customer.save()
+ 
 
         except razorpay.errors.SignatureVerificationError:
             razorpay_client.utility.verify_payment_signature(
@@ -337,18 +326,232 @@ class RPaymentVerificationView(APIView):
                     "razorpay_signature": signature,
                 }
             )
-            # Update the order's payment status
             
-            #order.payment_status = "paid"
-            
-            #order.order_status = "placed"
-            #print(order.order_status)
-            #order.save()
 
             return Response({"error": "Payment verification failed.", "flag": "False"}, status=status.HTTP_400_BAD_REQUEST)
-        #cart = Cart.objects.filter(user=request.user).first()
-        #cart.items.all().delete()
+ 
         return Response({"message": "Payment verified successfully.", "flag": "True"}, status=status.HTTP_200_OK)
+
+
+
+
+
+class CBuyNowAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            name = request.data.get('name')
+            email = request.data.get('email')
+            phone_number = request.data.get('phone_number')
+            coach_id = request.data.get('coach')
+            plan = int(request.data.get('plan'))  # 3 or 6
+            residence = request.data.get('residence')
+
+            coach = get_object_or_404(CoachProfile, pk=coach_id)
+
+            client = ClientDetails.objects.create(
+                name=name,
+                email=email,
+                phone_number=phone_number,
+                coach=coach,                 # REQUIRED FK
+                residence=residence,
+                payment_mode="cashfree",     # fixed
+                plan=plan
+            )
+
+            data = ClientDetailsSerializer(client).data
+            return Response(data, status=status.HTTP_201_CREATED)
+
+        except ValueError:
+            return Response({"detail": "Invalid plan. Use 3 or 6."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
+from decimal import Decimal, InvalidOperation
+import time
+import requests
+
+
+
+def cf_base_url():
+    env = getattr(settings, "CASHFREE_ENV", "TEST")
+    return "https://api.cashfree.com/pg" if env.upper() == "PROD" else "https://sandbox.cashfree.com/pg"
+
+def cf_headers():
+    app_id = getattr(settings, "CASHFREE_APP_ID", None)
+    secret_key = getattr(settings, "CASHFREE_SECRET_KEY", None)
+    if not app_id or not secret_key:
+        raise ValueError("Cashfree keys are not configured on the server.")
+    return {
+        "x-client-id": app_id,
+        "x-client-secret": secret_key,
+        "x-api-version": "2022-09-01",
+        "Content-Type": "application/json",
+    }
+
+class CPaymentInitializationView(APIView):
+    """
+    Creates a Cashfree Order for a given client (ClientDetails) and returns payment_session_id.
+    Frontend should use Cashfree Drop/Checkout with this session.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, client_id):
+        try:
+            client = get_object_or_404(ClientDetails, id=client_id)
+
+            # Block repeat payments
+            if client.payment_status == "paid":
+                return Response({"error": "Payment already completed for this client."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # Pricing lookup (coach level + 'international' plan row to mirror your Razorpay logic)
+            category = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
+            location = "domestic"
+            plan_row = get_object_or_404(Plans, category=category, location=location)
+
+            # Amount (1, 3, or 6 months)
+            if client.plan == 1:
+                amount_dec = plan_row.consultation_call_price
+            elif client.plan == 3:
+                amount_dec = plan_row.short_term_price
+            elif client.plan == 6:
+                amount_dec = plan_row.long_term_price
+            else:
+                return Response({"error": "Invalid plan.", "client_plan": client.plan}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Choose your currency (ensure it's enabled on your Cashfree account)
+            order_currency = "INR"  # or "INR"
+            order_amount = float(Decimal(amount_dec))  # Cashfree expects a float number
+
+            # Make a unique order_id for Cashfree (must be unique per order)
+            order_id = f"client_{client.id}_{int(time.time())}"
+
+            payload = {
+                "order_id": order_id,
+                "order_amount": order_amount,
+                "order_currency": order_currency,
+                "customer_details": {
+                    "customer_id": str(client.id),
+                    "customer_email": client.email or "noemail@example.com",
+                    "customer_phone": (client.phone_number or "").strip()[:15],
+                },
+                # Optional: show success page and/or have Cashfree call this notify URL
+                "order_meta": {
+                    # "return_url": "https://your-frontend/success?order_id={order_id}",
+                    # "notify_url": "https://your-backend/api/payments/cashfree/webhook/",
+                },
+                "order_note": f"Plan {client.plan} months | Coach: {category} | Loc: {location}",
+            }
+
+            url = f"{cf_base_url()}/orders"
+            headers = cf_headers()
+            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            if resp.status_code not in (200, 201):
+                return Response(
+                    {"error": "Cashfree order creation failed", "status": resp.status_code, "response": resp.text},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            data = resp.json()
+            payment_session_id = data.get("payment_session_id")
+            if not payment_session_id:
+                return Response({"error": "payment_session_id missing in Cashfree response", "response": data},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            # (Optional) Persist order_id/session if you want to map later
+            # client.cashfree_order_id = order_id
+            # client.save(update_fields=["cashfree_order_id"])
+
+            app_id = getattr(settings, "CASHFREE_APP_ID", "")
+            return Response({
+                "cashfree_order_id": order_id,
+                "payment_session_id": payment_session_id,
+                "currency": order_currency,
+                "amount": order_amount,
+                "app_id": app_id,  # needed by Drop Checkout on the frontend
+                "client": {
+                    "id": client.id,
+                    "name": client.name,
+                    "email": client.email,
+                    "phone_number": client.phone_number,
+                    "plan": client.plan,
+                    "coach_level": category,
+                    "location": location,
+                }
+            }, status=status.HTTP_200_OK)
+
+        except (InvalidOperation, ValueError) as e:
+            return Response({"error": "Amount computation failed", "details": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Unexpected error", "details": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+class CPaymentVerificationView(APIView):
+    """
+    Verifies Cashfree payment by fetching order status.
+    Frontend should send `cashfree_order_id` after checkout completion.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        cashfree_order_id = request.data.get("cashfree_order_id")
+        client_id = request.data.get("client_id")
+
+        if not cashfree_order_id or not client_id:
+            return Response({"error": "Missing cashfree_order_id or client_id."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        client = get_object_or_404(ClientDetails, id=client_id)
+
+        try:
+            url = f"{cf_base_url()}/orders/{cashfree_order_id}"
+            headers = cf_headers()
+            resp = requests.get(url, headers=headers, timeout=30)
+
+            if resp.status_code != 200:
+                return Response(
+                    {"error": "Failed to fetch order from Cashfree", "status": resp.status_code, "response": resp.text},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            data = resp.json()
+            order_status = data.get("order_status")  # e.g., "PAID", "ACTIVE", "EXPIRED"
+            cf_amount = data.get("order_amount")
+            cf_currency = data.get("order_currency")
+
+            if order_status == "PAID":
+                client.payment_status = "paid"
+                client.save(update_fields=["payment_status"])
+                return Response({
+                    "message": "Payment verified successfully.",
+                    "flag": "True",
+                    "order_status": order_status,
+                    "amount": cf_amount,
+                    "currency": cf_currency,
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "error": "Payment not completed.",
+                "flag": "False",
+                "order_status": order_status,
+                "amount": cf_amount,
+                "currency": cf_currency,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({"error": "Verification failed", "details": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
     
