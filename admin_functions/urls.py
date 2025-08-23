@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView
+from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
@@ -13,4 +13,9 @@ urlpatterns = [
     path("location/", location_view, name = "location"),
     path("planDetails/", PriceAndPlans.as_view(), name ="plans" ),
     path('recommend/', RecommendCoachAPIView.as_view(), name = "recommend"),
+    path('int-buy-now/', RBuyNowAPIView.as_view(), name = "buy-now-int"),
+    path('int-payment-init/<int:client_id>/', RPaymentInitializationView.as_view(), name = 'payment-init-int'),
+
+    path('int-payment-verify/', RPaymentVerificationView.as_view(), name = "payment-verify" ),
+
 ] 

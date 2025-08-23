@@ -143,7 +143,7 @@ class RecommendCoachAPIView(APIView):
 
 from django.shortcuts import get_object_or_404
 
-class BuyNowAPIView(APIView):
+class RBuyNowAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -189,7 +189,7 @@ from decimal import Decimal, InvalidOperation
 import razorpay
 from django.conf import settings
 
-class PaymentInitializationView(APIView):
+class RPaymentInitializationView(APIView):
     """
     Creates a Razorpay Order in USD for a given client (ClientDetails).
     """
@@ -280,7 +280,7 @@ class PaymentInitializationView(APIView):
 
 
 
-class PaymentVerificationView(APIView):
+class RPaymentVerificationView(APIView):
     """
     Verifies Razorpay payment and updates the order status.
     """
