@@ -217,7 +217,7 @@ class RPaymentInitializationView(APIView):
             elif client.plan == ClientDetails.Plan.WEEKS_24:
                 amount_dec = plan_row.long_term_price
             else:
-                return Response({"error": "Invalid plan.", "client_plan":"client.plan"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Invalid plan.", "client_plan":client.plan}, status=status.HTTP_400_BAD_REQUEST)
             
            
 
