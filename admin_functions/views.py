@@ -702,11 +702,14 @@ def cashfree_webhook(request):
                 client_obj.save()
             
                 return JsonResponse({"message": "Webhook received"}, status=200)
+        elif test_object in data:
+            print("test webhook received")
+            return JsonResponse({"message": "Test Webhook received"}, status=200)
         else :
             data = json.loads(request.body)
             order_id = data.get("order_id")
             order_status = data.get("order_status")
-            print(data, order_id, order_status, "enrgi initg jgrie jri jgrijg jrjgrijg")
+            print(data, order_id, order_status, )
             
             return JsonResponse({"message": "Webhook Failed"}, status=400)
     return JsonResponse({"detail": "Only POST"}, status=405)
