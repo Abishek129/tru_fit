@@ -690,6 +690,9 @@ def cashfree_webhook(request):
     if request.method == "POST":
         data = json.loads(request.body)
         order_id = data.get("order_id")
+        test = data.get("test_object")
+        if test:
+            return JsonResponse({"message": "Test Webhook received"}, status=200)
         order_status = data.get("order_status")
         if order_id and order_id.startswith("client_"):
             parts = order_id.split("_")
@@ -702,9 +705,7 @@ def cashfree_webhook(request):
                 client_obj.save()
             
                 return JsonResponse({"message": "Webhook received"}, status=200)
-        elif test_object in data:
-            print("test webhook received")
-            return JsonResponse({"message": "Test Webhook received"}, status=200)
+        
         else :
             data = json.loads(request.body)
             order_id = data.get("order_id")
