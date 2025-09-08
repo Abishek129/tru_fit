@@ -130,14 +130,32 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .utils import recommend_coaches
 from .serializers import CoachProfileSerializer
+from django.db.models import Q
 
 class RecommendCoachAPIView(APIView):
     def post(self, request):
-        user_answers = request.data  # JSON from quiz
-        coaches = recommend_coaches(user_answers, k=4)
+        injury = request.data.get('injury')
+        gender = request.data.get('gender')
+
+        if injury:
+            if gender == "anyone":
+                coaches = CoachProfile.objects.filter(~Q(coach_level="junior"))
+            else:
+                coaches = CoachProfile.objects.filter(~Q(coach_level="junior"), gender=gender)
+                if not coaches:
+                    coaches = CoachProfile.objects.filter(~Q(coach_level="junior"))
+
+        else:
+            if gender == "anyone":
+                coaches = CoachProfile.objects.filter(coach_level="junior")
+            else:
+                coaches = CoachProfile.objects.filter(coach_level="junior", gender=gender)
+
+        # Randomize order and select only 4 coaches
+        coaches = coaches.order_by('?')[:4]
+
         serializer = CoachProfileSerializer(coaches, many=True)
         return Response(serializer.data)
-
     
 
 
@@ -406,7 +424,7 @@ class CPaymentInitializationView(APIView):
     def post(self, request, client_id):
         try:
             client = get_object_or_404(ClientDetails, id=client_id)
-            print(getattr(settings, "CASHFREE_SECRET_KEY", None))
+            #print(getattr(settings, "CASHFREE_SECRET_KEY", None))
             # Block repeat payments
             if client.payment_status == "paid":
                 return Response({"error": "Payment already completed for this client."},
