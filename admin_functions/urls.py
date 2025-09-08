@@ -21,6 +21,6 @@ urlpatterns = [
     path('ind-payment-init/<int:client_id>/', CPaymentInitializationView.as_view(), name = 'payment-init-ind'),
     path('ind-payment-verify/', CPaymentVerificationView.as_view(), name = "payment-verify-ind"),
     path("cashfree-webhook/", CPaymentWebhookView.as_view(), name = "cashfree-webhook"),
-    path("cashfree-webhook2/",CashfreeWebhookView, name = 'webhook'),
+    path("cashfree-webhook2/",CashfreeWebhookView.as_view(), name = 'webhook'),
 
 ] 
