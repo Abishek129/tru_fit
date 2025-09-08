@@ -706,7 +706,7 @@ def cashfree_webhook(request):
             data = json.loads(request.body)
             order_id = data.get("order_id")
             order_status = data.get("order_status")
-            print(data, order_id, order_status)
+            print(data, order_id, order_status, "enrgi initg jgrie jri jgrijg jrjgrijg")
             
             return JsonResponse({"message": "Webhook Failed"}, status=400)
     return JsonResponse({"detail": "Only POST"}, status=405)
