@@ -715,7 +715,8 @@ class CashfreeWebhookView(View):
             payload = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON"}, status=400)
-
+        if not sig or not verify_signature(raw, sig):
+            return JsonResponse({"message": "Invalid signature"}, status=400)
         data = payload.get("data") or {}
         # Short-circuit the dashboard TEST ping (no signature needed)
         if isinstance(data, dict) and data.get("test_object"):
