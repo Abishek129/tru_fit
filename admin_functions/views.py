@@ -710,6 +710,7 @@ class CashfreeWebhookView(View):
         sig = request.headers.get("x-webhook-signature")
 
         # Parse once
+        print(sig)
         try:
             payload = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
