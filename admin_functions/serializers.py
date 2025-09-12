@@ -207,6 +207,7 @@ class PlansSerializer(serializers.ModelSerializer):
             'category',            # nested read-only
             'category_id',         # write-only for setting category
             'duration_weeks',
+            'price',
             'name'
         ]
         extra_kwargs = {

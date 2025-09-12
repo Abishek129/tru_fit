@@ -454,12 +454,20 @@ class CPaymentInitializationView(APIView):
 
             # Amount (3 or 6 months)
             if client.plan == 1:
-                plan = Plan.objects.get(category=cat,  duration_weeks="null")
+                plan = Plan.objects.get(category=cat,  duration_weeks=None)
+                if not plan:
+                    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 amount_dec = plan.price
             elif client.plan == 2:
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
+                if not plan:
+                    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
+                plan = Plan.objects.get(category=cat, duration_weeks=12)
                 amount_dec = plan.price
             elif client.plan == 3:
+                plan = Plan.objects.get(category=cat, duration_weeks=24)
+                if not plan:
+                    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
                 amount_dec = plan.price
                 
@@ -468,6 +476,7 @@ class CPaymentInitializationView(APIView):
             
 
             # Choose your currency (ensure it's enabled on your Cashfree account)
+            print(plan, amount_dec)
             order_currency = "INR"  # or "INR"
             order_amount = float(Decimal(amount_dec))  # Cashfree expects a float number
 
@@ -485,7 +494,7 @@ class CPaymentInitializationView(APIView):
                 },
                 # Optional: show success page and/or have Cashfree call this notify URL
                 
-                "order_note": f"Plan {client.plan} months | Coach: {category} | Loc: {location}",
+                "order_note": f"Plan {client.plan} months | Coach: {coach_level} | Loc: {location}",
             }
 
             url = f"{cf_base_url()}/orders"
@@ -520,7 +529,7 @@ class CPaymentInitializationView(APIView):
                     "email": client.email,
                     "phone_number": client.phone_number,
                     "plan": client.plan,
-                    "coach_level": category,
+                    "coach_level": coach_level,
                     "location": location,
                 }
             }, status=status.HTTP_200_OK)
