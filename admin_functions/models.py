@@ -51,10 +51,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
     
     email = models.EmailField(unique=True)
-    firebase_uid = models.CharField(max_length=128, unique=True, blank=True, null=True)
-    name = models.CharField(max_length=150, blank=True, null=True)  # ✅ Replace first_name & last_name
+    name = models.CharField(max_length=150, blank=True, null=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='customer')
+    
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -213,8 +213,9 @@ from django.core.validators import MinValueValidator
 from decimal import Decimal
 
 
-class Plans(models.Model):
-    CATEGORY_CHOICES = [
+
+class Category(models.Model):
+    COACH_LEVEL_CHOICES = [
         ('junior', 'JUNIOR'),
         ('senior', 'SENIOR'),   # normalized label case
         ('elite',  'ELITE'),
@@ -223,34 +224,41 @@ class Plans(models.Model):
         ('domestic',      'DOMESTIC'),
         ('international', 'INTERNATIONAL'),
     ]
-
-    category = models.CharField(max_length=12, choices=CATEGORY_CHOICES)
+    coach_level = models.CharField(max_length=12, choices=COACH_LEVEL_CHOICES)
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES)
-
-    short_term_price = models.DecimalField(
-        max_digits=10, decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    long_term_price = models.DecimalField(
-        max_digits=10, decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
-    consultation_call_price = models.DecimalField(
-        max_digits=10, decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
-    )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['category', 'location'],
+                fields=['coach_level', 'location'],
                 name='uniq_plan_category_location'
             )
         ]
 
     def __str__(self):
         # show human labels
-        return f"{self.get_category_display()} - {self.get_location_display()}"
+        return f"{self.get_coach_level_display()} - {self.get_location_display()}"
+
+
+class Plan(models.Model):
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='plans')
+    name = models.CharField(max_length=100, unique=True, blank=True, null=True)  
+    duration_weeks = models.PositiveIntegerField(validators=[MinValueValidator(1)], blank=True, null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))], blank=True, null=True )
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['category', 'duration_weeks'],
+                name='uniq_plan_category_duration'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.category} - {self.duration_weeks} weeks - ${self.price}"
+
+
     
 
 

@@ -187,17 +187,142 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
 
 
 from rest_framework import serializers
-from .models import Plans
+from .models import Plan, Category
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'coach_level', 'location']
 
 class PlansSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), source='category', write_only=True
+    )
+
     class Meta:
-        model = Plans
+        model = Plan
         fields = [
             'id',
-            'category',            # returns stored value e.g. "junior"
-            'location',            # returns stored value e.g. "international"
-            'short_term_price',
-            'long_term_price',
-            'consultation_call_price',
+            'category',            # nested read-only
+            'category_id',         # write-only for setting category
+            'duration_weeks',
+            'name'
         ]
+        extra_kwargs = {
+            'duration_weeks': {'validators': []},  # disable unique_together validator
+        }
 
+    def validate(self, attrs):
+        category = attrs.get('category') or getattr(self.instance, 'category', None)
+        duration_weeks = attrs.get('duration_weeks') or getattr(self.instance, 'duration_weeks', None)
+
+        if category and duration_weeks:
+            exists = Plan.objects.filter(category=category, duration_weeks=duration_weeks)
+            if self.instance:
+                exists = exists.exclude(pk=self.instance.pk)
+            if exists.exists():
+                raise serializers.ValidationError(
+                    "A plan with this category and duration already exists."
+                )
+        return super().validate(attrs)
+    
+
+
+
+
+from django.contrib.auth import get_user_model, authenticate
+from django.utils.text import slugify
+from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+
+User = get_user_model()
+
+class SignupSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=6)
+
+    class Meta:
+        model = User
+        fields = ["email", "password", "name", "phone_number", "user_type"]
+        extra_kwargs = {"user_type": {"required": False}}
+
+    def validate_email(self, value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Email already registered.")
+        return value.lower()
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        # Fallback: name from email if not provided
+        if not validated_data.get("name"):
+            validated_data["name"] = slugify(validated_data["email"].split("@")[0]).replace("-", " ").title()
+        user = User.objects.create_user(password=password, **validated_data)
+        return user
+
+    def to_representation(self, instance):
+        # return tokens on signup
+        data = super().to_representation(instance)
+        refresh = RefreshToken.for_user(instance)
+        data.update({
+            "id": instance.id,
+            "is_staff": instance.is_staff,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        })
+        return data
+    
+
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Login with email + password (your USERNAME_FIELD is email).
+    Adds basic fields into token (optional).
+    """
+    username_field = User.EMAIL_FIELD if hasattr(User, "EMAIL_FIELD") else "email"
+
+    def validate(self, attrs):
+        # Accept either "email" or "username" in payload; map to email.
+        email = attrs.get("email") or attrs.get("username")
+        password = attrs.get("password")
+
+        if not email or not password:
+            raise AuthenticationFailed("Email and password are required.")
+
+        user = authenticate(
+            request=self.context.get("request"),
+            username=email,  # ModelBackend uses USERNAME_FIELD internally
+            password=password,
+        )
+        if not user:
+            raise AuthenticationFailed("Invalid credentials.")
+
+        if not user.is_active:
+            raise AuthenticationFailed("User account is disabled.")
+
+        self.user = user
+        data = super().validate({"username": email, "password": password})
+
+        # optional: include small profile in response
+        data.update({
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "is_staff": user.is_staff,
+                "user_type": user.user_type,
+            }
+        })
+        return data
+    
+
+
+class AdminOnlyTokenObtainPairSerializer(EmailTokenObtainPairSerializer):
+    """
+    Same as login but enforces is_staff True.
+    """
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        if not self.user.is_staff:
+            raise AuthenticationFailed("Admin access only.")
+        return data

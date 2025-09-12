@@ -5,8 +5,8 @@ from django.shortcuts import render
 # admin_functions/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plans
-from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer
+from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category
+from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
@@ -102,12 +102,23 @@ def location_view(request):
     return JsonResponse({"detail": "Only POST"}, status=405)
 
 
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for Blog with file upload support.
+    """
+    permission_classes = [AllowAny]
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    #permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser]
+
 class PlansViewSet(viewsets.ModelViewSet):
     """
     CRUD for Blog with file upload support.
     """
     permission_classes = [AllowAny]
-    queryset = Plans.objects.all()
+    queryset = Plan.objects.all()
     serializer_class = PlansSerializer
     #permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     parser_classes = [MultiPartParser, FormParser]
@@ -118,8 +129,9 @@ class PriceAndPlans(APIView):
 
     def post(self, request):
         location = request.data.get('location')
-        category = request.data.get('category')
-        plans = Plans.objects.get(location = location, category = category)
+        coach_level = request.data.get('coach_level')
+        category = get_object_or_404(Category, coach_level=coach_level, location=location)  
+        plans = Plan.objects.get(category = category)
         serializer = PlansSerializer(plans)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
@@ -220,17 +232,21 @@ class RPaymentInitializationView(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Pricing lookup (coach level + 'international' plan row)
-            category = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
+            coach_level = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
             location = "international"
-            plan_row = get_object_or_404(Plans, category=category, location=location)
+            cat = get_object_or_404(Category, coach_level=coach_level, location=location)
 
             # Amount (3 or 6 months)
             if client.plan == 1:
-                amount_dec = plan_row.consultation_call_price
+                plan = Plan.objects.get(category=cat, duration_weeks="null")
+                amount_dec = plan.price
             elif client.plan == 2:
-                amount_dec = plan_row.short_term_price
+                plan = Plan.objects.get(category=cat, duration_weeks=12)
+                amount_dec = plan.price
             elif client.plan == 3:
-                amount_dec = plan_row.long_term_price
+                plan = Plan.objects.get(category=cat, duration_weeks=24)
+                amount_dec = plan.price
+                
             else:
                 return Response({"error": "Invalid plan.", "client_plan":client.plan}, status=status.HTTP_400_BAD_REQUEST)
             
@@ -256,7 +272,7 @@ class RPaymentInitializationView(APIView):
                     "client_id": str(client.id),
                     "client_email": client.email,
                     "plan_months": str(client.plan),
-                    "coach_level": category,
+                    "coach_level": coach_level,
                     "pricing_location": location,
                 }
             })
@@ -276,7 +292,7 @@ class RPaymentInitializationView(APIView):
                     "email": client.email,
                     "phone_number": client.phone_number,
                     "plan": client.plan,
-                    "coach_level": category,
+                    "coach_level": coach_level,
                     "location": location,
                 }
             }, status=status.HTTP_200_OK)
@@ -431,19 +447,25 @@ class CPaymentInitializationView(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Pricing lookup (coach level + 'international' plan row to mirror your Razorpay logic)
-            category = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
-            location = "domestic"
-            plan_row = get_object_or_404(Plans, category=category, location=location)
+                   # 'junior' | 'senior' | 'elite'
+            coach_level = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
+            location = "international"
+            cat = get_object_or_404(Category, coach_level=coach_level, location=location)
 
-            # Amount (1, 3, or 6 months)
+            # Amount (3 or 6 months)
             if client.plan == 1:
-                amount_dec = plan_row.consultation_call_price
+                plan = Plan.objects.get(category=cat,  duration_weeks="null")
+                amount_dec = plan.price
             elif client.plan == 2:
-                amount_dec = plan_row.short_term_price
+                plan = Plan.objects.get(category=cat, duration_weeks=12)
+                amount_dec = plan.price
             elif client.plan == 3:
-                amount_dec = plan_row.long_term_price
+                plan = Plan.objects.get(category=cat, duration_weeks=24)
+                amount_dec = plan.price
+                
             else:
-                return Response({"error": "Invalid plan.", "client_plan": client.plan}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "Invalid plan.", "client_plan":client.plan}, status=status.HTTP_400_BAD_REQUEST)
+            
 
             # Choose your currency (ensure it's enabled on your Cashfree account)
             order_currency = "INR"  # or "INR"
@@ -732,3 +754,57 @@ class CashfreeWebhookView(View):
 
         # ... proceed with order/payment extraction and updates ...
         return JsonResponse({"message": "OK"}, status=200)
+    
+
+
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from .serializers import (
+    SignupSerializer,
+    EmailTokenObtainPairSerializer,
+    AdminOnlyTokenObtainPairSerializer,
+)
+
+class SignupView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = SignupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class LoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+    serializer_class = EmailTokenObtainPairSerializer
+
+
+class AdminLoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+    serializer_class = AdminOnlyTokenObtainPairSerializer
+
+
+class RefreshView(TokenRefreshView):
+    permission_classes = [AllowAny]
+
+
+class LogoutView(APIView):
+    """
+    Optional: add to blacklist by sending refresh token.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get("refresh")
+        if not refresh:
+            return Response({"detail": "refresh token required"}, status=400)
+        try:
+            token = RefreshToken(refresh)
+            token.blacklist()
+        except Exception:
+            return Response({"detail": "invalid token"}, status=400)
+        return Response({"detail": "logged out"}, status=205)
+    
