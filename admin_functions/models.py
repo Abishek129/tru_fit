@@ -193,11 +193,7 @@ class ClientDetails(models.Model):
         max_length=17,
         validators=[RegexValidator(r'^\+?\d{7,15}$', 'Enter a valid phone number.')]
     )
-    coach = models.ForeignKey(
-        'CoachProfile',
-        on_delete=models.CASCADE,
-        related_name='clients'
-    )
+    
     residence = models.CharField(max_length=100, blank=True, null=True)
     created_date = models.DateTimeField(default=timezone.now)  # or auto_now_add=True
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
@@ -207,7 +203,35 @@ class ClientDetails(models.Model):
     def __str__(self):
         return self.name
 
+class Clinet_Coach(models.Model):
+    client = models.ForeignKey(ClientDetails, on_delete=models.CASCADE, related_name='client_coach')
+    coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='coach_clients')
+    start_date = models.DateField(default=timezone.now)
+    duration_weeks = models.PositiveIntegerField( blank=True, null=True)
+    active = models.BooleanField(default=True)
 
+    def __str__(self):
+        return f"{self.client.name} - {self.coach.name}"
+    
+
+
+class ActiveClient(models.Model):
+    client = models.OneToOneField(ClientDetails, on_delete=models.CASCADE, related_name='active_client')
+    coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='active_clients')
+    duration_weeks = models.PositiveIntegerField( blank=True, null=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    def __str__(self):
+        return f"{self.client.name} - {self.coach.name} (Active)"
+
+    def clean(self):
+        if self.end_date <= self.start_date:
+            raise ValidationError('End date must be after start date.')
+
+    def save(self, *args, **kwargs):
+        self.clean()  # Ensure validation is called on save
+        super().save(*args, **kwargs)
 
 from django.core.validators import MinValueValidator
 from decimal import Decimal

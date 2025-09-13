@@ -5,8 +5,8 @@ from django.shortcuts import render
 # admin_functions/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category
-from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer
+from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach
+from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
@@ -181,22 +181,26 @@ class RBuyNowAPIView(APIView):
             name = request.data.get('name')
             email = request.data.get('email')
             phone_number = request.data.get('phone_number')
-            coach_id = request.data.get('coach')
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
-
-            coach = get_object_or_404(CoachProfile, pk=coach_id)
-
-            client = ClientDetails.objects.create(
-                name=name,
-                email=email,
-                phone_number=phone_number,
-                coach=coach,                 # REQUIRED FK
-                residence=residence,
-                payment_mode="razorpay",     # fixed
-                plan=plan
-            )
-
+            if ClientDetails.objects.filter(email=email).exists():
+                client = ClientDetails.objects.get(email=email)
+                client.payment_mode="razorpay"
+                client.plan=plan
+                client.residence=residence
+                client.payment_status="pending"
+                client.save()
+            
+            else:
+                client = ClientDetails.objects.create(
+                    name=name,
+                    email=email,
+                    phone_number=phone_number,                # REQUIRED FK
+                    residence=residence,
+                    payment_mode="razorpay",     # fixed
+                    plan=plan
+                )
+            print(client)
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
 
@@ -222,17 +226,18 @@ class RPaymentInitializationView(APIView):
     """
     permission_classes = [AllowAny]
 
-    def post(self, request, client_id):
+    def post(self, request, client_id, coach_id):
         try:
             client = get_object_or_404(ClientDetails, id=client_id)
 
+            coach = get_object_or_404(CoachProfile, id=coach_id)
             # Block repeat payments
             if client.payment_status == "paid":
                 return Response({"error": "Payment already completed for this client."},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Pricing lookup (coach level + 'international' plan row)
-            coach_level = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
+            coach_level = coach.coach_level        # 'junior' | 'senior' | 'elite'
             location = "international"
             cat = get_object_or_404(Category, coach_level=coach_level, location=location)
 
@@ -378,21 +383,33 @@ class CBuyNowAPIView(APIView):
             name = request.data.get('name')
             email = request.data.get('email')
             phone_number = request.data.get('phone_number')
-            coach_id = request.data.get('coach')
+            #coach_id = request.data.get('coach')
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
 
-            coach = get_object_or_404(CoachProfile, pk=coach_id)
+            #coach = get_object_or_404(CoachProfile, pk=coach_id)
 
-            client = ClientDetails.objects.create(
-                name=name,
-                email=email,
-                phone_number=phone_number,
-                coach=coach,                 # REQUIRED FK
-                residence=residence,
-                payment_mode="cashfree",     # fixed
-                plan=plan
-            )
+            if ClientDetails.objects.filter(email=email).exists():
+                client = ClientDetails.objects.get(email=email)
+                client.payment_mode="cashfree"
+                client.plan=plan
+                client.residence=residence
+                client.payment_status="pending"
+                client.save()
+            
+            else:
+                client = ClientDetails.objects.create(
+                    name=name,
+                    email=email,
+                    phone_number=phone_number,
+                    #coach=coach,                 # REQUIRED FK
+                    residence=residence,
+                    payment_mode="cashfree", 
+                            # fixed
+                    plan=plan
+                )
+
+                        
 
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
@@ -437,29 +454,32 @@ class CPaymentInitializationView(APIView):
     """
     permission_classes = [AllowAny]
 
-    def post(self, request, client_id):
+    def post(self, request, client_id, coach_id):
         try:
             client = get_object_or_404(ClientDetails, id=client_id)
             #print(getattr(settings, "CASHFREE_SECRET_KEY", None))
             # Block repeat payments
+            coach = get_object_or_404(CoachProfile, id=coach_id)
             if client.payment_status == "paid":
                 return Response({"error": "Payment already completed for this client."},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Pricing lookup (coach level + 'international' plan row to mirror your Razorpay logic)
                    # 'junior' | 'senior' | 'elite'
-            coach_level = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
-            location = "international"
+            coach_level = coach.coach_level        # 'junior' | 'senior' | 'elite'
+            location = "domestic"
             cat = get_object_or_404(Category, coach_level=coach_level, location=location)
 
             # Amount (3 or 6 months)
             if client.plan == 1:
                 plan = Plan.objects.get(category=cat,  duration_weeks=None)
+
                 if not plan:
                     return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 amount_dec = plan.price
             elif client.plan == 2:
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
+                active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12)
                 if not plan:
                     return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
@@ -817,3 +837,39 @@ class LogoutView(APIView):
             return Response({"detail": "invalid token"}, status=400)
         return Response({"detail": "logged out"}, status=205)
     
+
+
+
+from django.utils.dateparse import parse_date
+from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
+
+class ClinetCoachTableViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint that returns client-coach assignments for table view.
+    Optional filters:
+      - ?start_date=YYYY-MM-DD  (lower bound, inclusive)
+      - ?end_date=YYYY-MM-DD    (upper bound, inclusive)
+    """
+    queryset = Clinet_Coach.objects.select_related("client", "coach").all()
+    serializer_class = ClinetCoachTableSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        start_str = self.request.query_params.get("start_date")
+        end_str = self.request.query_params.get("end_date")
+
+        if start_str:
+            start_dt = parse_date(start_str)
+            if not start_dt:
+                raise ValidationError({"start_date": "Use YYYY-MM-DD format."})
+            qs = qs.filter(start_date__gte=start_dt)
+
+        if end_str:
+            end_dt = parse_date(end_str)
+            if not end_dt:
+                raise ValidationError({"end_date": "Use YYYY-MM-DD format."})
+            qs = qs.filter(start_date__lte=end_dt)
+
+        return qs
+

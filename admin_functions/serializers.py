@@ -1,6 +1,6 @@
 # admin_functions/serializers.py
 from rest_framework import serializers
-from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails
+from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Clinet_Coach, ActiveClient 
 
 class BlogSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField(read_only=True)
@@ -138,26 +138,27 @@ class CoachProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
-class CoachMiniSerializer(serializers.ModelSerializer):
-    # Optional: also expose display label if you want uppercase ("JUNIOR", etc.)
-    coach_level_display = serializers.CharField(source="get_coach_level_display", read_only=True)
+from .models import ClientDetails, Clinet_Coach, CoachProfile  # adjust import path
 
+# --- Nested mini serializers (read-only) ---
+
+class CoachMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoachProfile
-        fields = ["id", "name", "coach_level", "coach_level_display", "image"]
+        fields = ["id", "name"]
 
+
+class ClientMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientDetails
+        fields = ["id", "name", "email", "phone_number", "created_date"]
+
+
+# --- Main serializers ---
 
 class ClientDetailsSerializer(serializers.ModelSerializer):
-    # write: coach as PK; read: include nested details
-    coach = serializers.PrimaryKeyRelatedField(queryset=CoachProfile.objects.all())
-    coach_detail = CoachMiniSerializer(source="coach", read_only=True)
-
-    # display labels
-    payment_mode_display = serializers.CharField(source="get_payment_mode_display", read_only=True)
-    plan = serializers.IntegerField() 
-
-    # ensure plan respects your IntegerChoices (1, 12, 24)
-    
+    # created_date should be read-only; choices are validated by DRF automatically
+    created_date = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = ClientDetails
@@ -166,26 +167,78 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
             "name",
             "email",
             "phone_number",
-            "coach",
-            "coach_detail",
             "residence",
             "created_date",
-            "payment_mode",            # read-only; set server-side
-            "payment_mode_display",
+            "payment_mode",
             "plan",
-            
-            "payment_status",          # read-only; set by your payment flow
+            "payment_status",
         ]
-        read_only_fields = ["created_date", "payment_mode", "payment_status"]
-
-    def create(self, validated_data):
-        # force Razorpay here so client doesn’t have to send it
-        validated_data.setdefault("payment_mode", "razorpay")
-        return super().create(validated_data)
 
 
+class ClinetCoachTableSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source="client.name", read_only=True)
+    client_email = serializers.EmailField(source="client.email", read_only=True)
+    client_residence = serializers.CharField(source="client.residence", read_only=True)
+    coach_name = serializers.CharField(source="coach.name", read_only=True)
+
+    # Custom field for duration
+    duration_weeks = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Clinet_Coach
+        fields = [
+            "id",
+            "client_name",
+            "client_email",
+            "client_residence",
+            "coach_name",
+            "start_date",
+            "duration_weeks",
+        ]
+
+    def get_duration_weeks(self, obj):
+        if obj.duration_weeks:
+            return f"{obj.duration_weeks} weeks"
+        return None
 
 
+class ActiveClientSerializer(serializers.ModelSerializer):
+    # Nested read-only
+    client = serializers.StringRelatedField(read_only=True)
+    coach = serializers.StringRelatedField(read_only=True)
+
+    # IDs for write
+    client_id = serializers.PrimaryKeyRelatedField(
+        queryset=ClientDetails.objects.all(), source="client", write_only=True
+    )
+    coach_id = serializers.PrimaryKeyRelatedField(
+        queryset=CoachProfile.objects.all(), source="coach", write_only=True
+    )
+
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+
+    class Meta:
+        model = ActiveClient
+        fields = [
+            "id",
+            "client", "coach",       # nested (read-only)
+            "client_id", "coach_id", # write-only
+            "duration_weeks",
+            "start_date",
+            "end_date",
+        ]
+
+    def validate(self, attrs):
+        """Extra safety at serializer level (in addition to model.clean)."""
+        start_date = attrs.get("start_date") or getattr(self.instance, "start_date", None)
+        end_date = attrs.get("end_date") or getattr(self.instance, "end_date", None)
+
+        if start_date and end_date and end_date <= start_date:
+            raise serializers.ValidationError("End date must be after start date.")
+        return attrs
+    
+    
 from rest_framework import serializers
 from .models import Plan, Category
 
