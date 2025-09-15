@@ -776,7 +776,46 @@ class CashfreeWebhookView(View):
         # Short-circuit the dashboard TEST ping (no signature needed)
         if isinstance(data, dict) and data.get("test_object"):
             return JsonResponse({"message": "Test Webhook received"}, status=200)
+        event_type = payload.get("type")  # e.g., PAYMENT_SUCCESS_WEBHOOK, PAYMENT_FAILED_WEBHOOK, PAYMENT_USER_DROPPED_WEBHOOK
+        data = payload.get("data") or {}
+        order = data.get("order") or {}
+        payment = data.get("payment") or {}
+        customer = data.get("customer_details") or {}
 
+        order_id = order.get("order_id")                   # ex: "order_OFR_2" or your custom one
+        order_amt = order.get("order_amount")
+        order_cur = order.get("order_currency")
+        p_status = payment.get("payment_status")           # SUCCESS | FAILED | USER_DROPPED
+        cf_payment_id = payment.get("cf_payment_id")
+        p_msg = payment.get("payment_message")
+
+       
+
+        # --- 5) Map your order_id back to a client (you were using client_<id>_...) ---
+        client_obj = None
+        client_id = None
+        if order_id and order_id.startswith("client_"):
+            parts = order_id.split("_")
+            if len(parts) >= 2 and parts[1].isdigit():
+                client_id = int(parts[1])
+                client_obj = ClientDetails.objects.filter(id=client_id).first()
+
+        # --- 6) Act on status ---
+        if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
+            if client_obj and client_obj.payment_status != "paid":
+                client_obj.payment_status = "paid"
+                client_obj.save(update_fields=["payment_status"])
+                log.info("Client %s marked PAID (amount=%s %s)", client_id, order_amt, order_cur)
+            return Response({"ok": True}, status=200)
+
+        # Not paid cases (FAILED / USER_DROPPED). You can log or set a field if you track failures.
+        if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
+            log.info("Payment not completed: %s (%s)", p_status, p_msg)
+            # Optionally: persist last failure reason on the client/order model.
+            return Response({"ok": True}, status=200)
+
+        # Unknown event type—acknowledge to stop retries, but log for review.
+        log.warning("Unhandled webhook type: %s", event_type)
         # For real events, verify signature using PG secret & RAW body
         # Cashfree requires verifying over RAW JSON with the PG secret key. :contentReference[oaicite:2]{index=2}
         if not sig or not verify_signature(raw, sig):
