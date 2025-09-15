@@ -6,7 +6,7 @@ from django.shortcuts import render
 from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach
-from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer
+from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer, ClientTableSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
@@ -762,7 +762,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 import json
 import logging
-
+from django.utils import timezone
 log = logging.getLogger(__name__)
 
 
@@ -816,10 +816,15 @@ class CashfreeWebhookView(View):
                 client_obj.payment_status = "paid"
                 
                 client_obj.save(update_fields=["payment_status"])
-                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
-                active_client.active = True
-                active_client.save()
-                print(active_client)
+                client_obj.payment_date = timezone.now()
+                if client_obj.plan != 1:
+                    client_obj.active = True
+                    active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                    active_client.active = True
+                    active_client.save()
+                    print(active_client)
+                
+                client_obj.save()
                 log.info("Client %s marked PAID (amount=%s %s, cf_payment_id=%s)",
                          client_id, order_amt, order_cur, cf_payment_id)
             return JsonResponse({"ok": True}, status=200)
@@ -946,3 +951,16 @@ class TestEmailView(APIView):
             print("SMTP PASS:", os.environ.get("AWS_SES_ACCESS_KEY_ID"))    
             #print("SMTP PASS LEN:", os.environ.get("SES_SMTP_PASS",""))
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        
+        
+
+
+class ClientTableView(APIView):
+    """
+    API endpoint that returns all clients in a tabular format.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        client_table = ClientTableSerializer( ClientDetails.objects.filter(active=True).order_by('-payment_date'), many=True).data
+
+        return Response(client_table, status=status.HTTP_200_OK)

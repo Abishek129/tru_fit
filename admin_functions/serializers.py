@@ -170,6 +170,7 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
             "residence",
             "coach",
             "created_date",
+            'payment_date',
             "payment_mode",
             "plan",
             "payment_status",
@@ -203,6 +204,26 @@ class ClinetCoachTableSerializer(serializers.ModelSerializer):
         return None
 
 
+class ClientTableSerializer(serializers.ModelSerializer):
+    coach = CoachMiniSerializer(read_only=True)
+
+    class Meta:
+        model = ClientDetails
+        fields = [
+            "id",
+            "name",
+            "email",
+            "phone_number",
+            "residence",
+            "coach",
+            "created_date",
+            'payment_date',
+            'active',
+            "payment_mode",
+            "plan",
+            "payment_status",
+        ]
+        
 class ActiveClientSerializer(serializers.ModelSerializer):
     # Nested read-only
     client = serializers.StringRelatedField(read_only=True)

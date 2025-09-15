@@ -201,10 +201,12 @@ class ClientDetails(models.Model):
         related_name='coach_clients'
     )
     residence = models.CharField(max_length=100, blank=True, null=True)
-    created_date = models.DateTimeField(default=timezone.now)  # or auto_now_add=True
+    created_date = models.DateTimeField(default=timezone.now) 
+    payment_date = models.DateField(default=timezone.now) # or auto_now_add=True
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
     plan = models.PositiveSmallIntegerField()
     payment_status = models.CharField(max_length=100, choices=PAYMENT_STATUS_CHOICES, default="pending")
+    active = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

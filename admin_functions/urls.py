@@ -30,6 +30,7 @@ urlpatterns = [
     path("auth/token/refresh/", RefreshView.as_view(), name="token_refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("send-test-email/", TestEmailView.as_view(), name="send_test_email"),  
+    path('client-table/', ClinetCoachTableViewSet.as_view({'get': 'list'}), name='client-table'),
     
 
 ] 
