@@ -175,6 +175,65 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
             "plan",
             "payment_status",
         ]
+class ClientCoachReadSerializer(serializers.ModelSerializer):
+    """
+    Use this for list/detail responses. Shows nested minimal info.
+    """
+    client = ClientMiniSerializer(source="client", read_only=True)
+    coach = CoachMiniSerializer(source="coach", read_only=True)
+
+    # Handy computed fields (optional)
+    client_name = serializers.CharField(source="client.name", read_only=True)
+    coach_name  = serializers.CharField(source="coach.name", read_only=True)
+
+    class Meta:
+        model = Clinet_Coach
+        fields = [
+            "id",
+            "client",        # nested mini
+            "coach",         # nested mini
+            "client_name",   # quick access
+            "coach_name",    # quick access
+            "start_date",
+            "duration_weeks",
+            "active",
+            "us_revenue",
+            "inr_revenue",
+        ]
+
+class CoachRevenueSerializer(serializers.ModelSerializer):  
+    coach = CoachMiniSerializer(source = 'coach', read_only=True)
+    client = ClientMiniSerializer(source = 'client', read_only=True)
+
+    class Meta:
+        model = Clinet_Coach
+        fields = [
+            "id",
+            "coach",
+            "client",
+            "inr_revenue",
+            "us_revenue",
+        ]
+
+
+
+class CoachTableSerializer(serializers.ModelSerializer):
+    coach = CoachMiniSerializer(source = 'coach',read_only=True)
+    client = ClientMiniSerializer(source = 'client',read_only=True)
+    
+    class Meta:
+        model = Clinet_Coach
+        fields = [
+            "id",
+            "coach",
+            "client",   
+            "start_date",
+            "duration_weeks",   
+            "active",
+            "inr_revenue",            
+            "us_revenue",
+        ]   
+    
 
 
 class ClinetCoachTableSerializer(serializers.ModelSerializer):
@@ -223,7 +282,22 @@ class ClientTableSerializer(serializers.ModelSerializer):
             "plan",
             "payment_status",
         ]
-        
+
+
+class CoachRevenueSerializer(serializers.ModelSerializer):
+    coach = CoachMiniSerializer(read_only=True)
+
+    class Meta:
+        model = Clinet_Coach
+        fields = [
+            "id",
+            "coach",
+            "inr_revenue",
+            "us_revenue",
+        ]
+
+
+            
 class ActiveClientSerializer(serializers.ModelSerializer):
     # Nested read-only
     client = serializers.StringRelatedField(read_only=True)

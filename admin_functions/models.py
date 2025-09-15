@@ -215,12 +215,16 @@ class Clinet_Coach(models.Model):
     client = models.ForeignKey(ClientDetails, on_delete=models.CASCADE, related_name='client_coach_rel')
     coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='coach_clients_rel')
     start_date = models.DateField(default=timezone.now)
-    duration_weeks = models.PositiveIntegerField( blank=True, null=True)
+    duration_weeks = models.PositiveIntegerField(blank=True, null=True)
     active = models.BooleanField(default=True)
+    us_revenue = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    inr_revenue = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+
+    class Meta:
+        unique_together = ('client', 'coach')
 
     def __str__(self):
         return f"{self.client.name} - {self.coach.name}"
-    
 
 
 class ActiveClient(models.Model):
@@ -289,6 +293,20 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"{self.category} - {self.duration_weeks} weeks - ${self.price}"
+    
+
+class CoachRevenue(models.Model):
+    coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='revenues')
+    #month = models.DateField()  # Store the first day of the month
+    us_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    inr_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+
+
+    def __str__(self):
+        return f"{self.coach.name} - {self.month.strftime('%Y-%m')}"
+
+
     
 
 

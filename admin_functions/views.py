@@ -5,7 +5,7 @@ from django.shortcuts import render
 # admin_functions/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach
+from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach, CoachRevenue
 from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer, ClientTableSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -480,14 +480,24 @@ class CPaymentInitializationView(APIView):
                 amount_dec = plan.price
             elif client.plan == 2:
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
-                active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
+                if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+                    active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+                    active_client.duration_weeks = 12
+                    active_client.save()
+                else:
+                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
                 if not plan:
                     return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
                 amount_dec = plan.price
             elif client.plan == 3:
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
-                active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
+                if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+                    active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+                    active_client.duration_weeks = 12
+                    active_client.save()
+                else:
+                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
                 if not plan:
                     return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
@@ -820,10 +830,16 @@ class CashfreeWebhookView(View):
                 if client_obj.plan != 1:
                     client_obj.active = True
                     active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                    active_client += order_amt 
+                    coach_revnue = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
+                    coach_revnue.inr_revenue += order_amt
+                    coach_revnue.save()
                     active_client.active = True
                     active_client.save()
                     print(active_client)
-                
+                else:
+                    active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                    active_client.delete()
                 client_obj.save()
                 log.info("Client %s marked PAID (amount=%s %s, cf_payment_id=%s)",
                          client_id, order_amt, order_cur, cf_payment_id)
@@ -960,7 +976,103 @@ class ClientTableView(APIView):
     """
     permission_classes = [AllowAny]
 
-    def get(self, request):
-        client_table = ClientTableSerializer( ClientDetails.objects.filter(active=True).order_by('-payment_date'), many=True).data
+    def get(self, request, start_date=None, end_date=None):
+        if start_date and end_date:
+            try:
+                start_dt = parse_date(start_date)
+                end_dt = parse_date(end_date)
+                if not start_dt or not end_dt:
+                    raise ValueError
+                client_table = ClientTableSerializer(
+                    ClientDetails.objects.filter(active=True, payment_date__range=(start_dt, end_dt)).order_by('-payment_date'),
+                    many=True
+                ).data
+            except ValueError:
+                return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+        elif start_date:
+            try:
+                start_dt = parse_date(start_date)
+                if not start_dt:
+                    raise ValueError
+                client_table = ClientTableSerializer(
+                    ClientDetails.objects.filter(active=True, payment_date__gte=start_dt).order_by('-payment_date'),
+                    many=True
+                ).data
+            except ValueError:
+                return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+        elif end_date:
+            try:
+                end_dt = parse_date(end_date)
+                if not end_dt:
+                    raise ValueError
+                client_table = ClientTableSerializer(
+                    ClientDetails.objects.filter(active=True, payment_date__lte=end_dt).order_by('-payment_date'),
+                    many=True
+                ).data
+            except ValueError:
+                return Response({"detail": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            client_table = ClientTableSerializer( ClientDetails.objects.filter(active=True).order_by('-payment_date'), many=True).data
 
         return Response(client_table, status=status.HTTP_200_OK)
+    
+
+
+
+
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import ValidationError
+from .models import Clinet_Coach
+from .serializers import CoachTableSerializer
+
+class CoachClientListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = CoachTableSerializer
+
+    def get_queryset(self):
+        coach_id = self.kwargs.get("coach_id")
+        if coach_id is None:
+            raise ValidationError({"coach_id": "coach_id path parameter is required."})
+
+        qs = (Clinet_Coach.objects
+              .filter(coach_id=coach_id)
+              .select_related("coach", "client")
+              .order_by("-start_date"))
+        
+        # Optional: support ?active=true/false
+        active = self.request.query_params.get("active")
+        if active is not None:
+            if active.lower() not in ("true", "false"):
+                raise ValidationError({"active": "Use true or false."})
+            qs = qs.filter(active=(active.lower() == "true"))
+        return qs
+    
+
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import ValidationError
+from .models import Clinet_Coach
+from .serializers import CoachTableSerializer
+
+class CoachClientListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = CoachTableSerializer
+
+    def get_queryset(self):
+        coach_id = self.kwargs.get("coach_id")
+        if coach_id is None:
+            raise ValidationError({"coach_id": "coach_id path parameter is required."})
+
+        qs = (Clinet_Coach.objects
+              .filter(coach_id=coach_id)
+              .select_related("coach", "client")
+              .order_by("-start_date"))
+        
+        # Optional: support ?active=true/false
+        active = self.request.query_params.get("active")
+        if active is not None:
+            if active.lower() not in ("true", "false"):
+                raise ValidationError({"active": "Use true or false."})
+            qs = qs.filter(active=(active.lower() == "true"))
+        return qs
