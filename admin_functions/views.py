@@ -480,13 +480,14 @@ class CPaymentInitializationView(APIView):
                 amount_dec = plan.price
             elif client.plan == 2:
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
-                active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12)
+                active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
                 if not plan:
                     return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
                 amount_dec = plan.price
             elif client.plan == 3:
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
+                active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
                 if not plan:
                     return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
@@ -764,10 +765,7 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def verify_signature(raw_body: bytes, signature_header: str) -> bool:
-    # TODO: implement with your Cashfree secret: compute HMAC over raw_body
-    # and compare (constant-time) with signature_header.
-    return True
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class CashfreeWebhookView(View):
@@ -816,13 +814,21 @@ class CashfreeWebhookView(View):
         if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
             if client_obj and getattr(client_obj, "payment_status", None) != "paid":
                 client_obj.payment_status = "paid"
+                
                 client_obj.save(update_fields=["payment_status"])
+                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                active_client.active = True
+                active_client.save()
+                print(active_client)
                 log.info("Client %s marked PAID (amount=%s %s, cf_payment_id=%s)",
                          client_id, order_amt, order_cur, cf_payment_id)
             return JsonResponse({"ok": True}, status=200)
 
         if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
             log.info("Payment not completed: status=%s msg=%s cf_payment_id=%s", p_status, p_msg, cf_payment_id)
+            active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+            print(active_client)
+            active_client.delete()
             return JsonResponse({"ok": True}, status=200)
 
         log.warning("Unhandled webhook type: %s", event_type)

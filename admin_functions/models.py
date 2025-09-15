@@ -287,6 +287,9 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"{self.category} - {self.duration_weeks} weeks - ${self.price}"
+    
+
+
 
 
     
