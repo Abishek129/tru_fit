@@ -4,4 +4,5 @@ from .models import *
 
 admin.site.register(CoachProfile)
 admin.site.register(Plan)
+admin.site.register(ClientDetails)
 

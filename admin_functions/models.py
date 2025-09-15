@@ -193,7 +193,13 @@ class ClientDetails(models.Model):
         max_length=17,
         validators=[RegexValidator(r'^\+?\d{7,15}$', 'Enter a valid phone number.')]
     )
-    
+    coach = models.ForeignKey(
+        CoachProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='coach_clients'
+    )
     residence = models.CharField(max_length=100, blank=True, null=True)
     created_date = models.DateTimeField(default=timezone.now)  # or auto_now_add=True
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
@@ -204,8 +210,8 @@ class ClientDetails(models.Model):
         return self.name
 
 class Clinet_Coach(models.Model):
-    client = models.ForeignKey(ClientDetails, on_delete=models.CASCADE, related_name='client_coach')
-    coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='coach_clients')
+    client = models.ForeignKey(ClientDetails, on_delete=models.CASCADE, related_name='client_coach_rel')
+    coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='coach_clients_rel')
     start_date = models.DateField(default=timezone.now)
     duration_weeks = models.PositiveIntegerField( blank=True, null=True)
     active = models.BooleanField(default=True)

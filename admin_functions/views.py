@@ -383,16 +383,17 @@ class CBuyNowAPIView(APIView):
             name = request.data.get('name')
             email = request.data.get('email')
             phone_number = request.data.get('phone_number')
-            #coach_id = request.data.get('coach')
+            coach_id = request.data.get('coach')
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
 
-            #coach = get_object_or_404(CoachProfile, pk=coach_id)
+            coach = get_object_or_404(CoachProfile, pk=coach_id)
 
             if ClientDetails.objects.filter(email=email).exists():
                 client = ClientDetails.objects.get(email=email)
                 client.payment_mode="cashfree"
                 client.plan=plan
+                client.coach = coach    
                 client.residence=residence
                 client.payment_status="pending"
                 client.save()
@@ -402,7 +403,7 @@ class CBuyNowAPIView(APIView):
                     name=name,
                     email=email,
                     phone_number=phone_number,
-                    #coach=coach,                 # REQUIRED FK
+                    coach=coach,                 # REQUIRED FK
                     residence=residence,
                     payment_mode="cashfree", 
                             # fixed
@@ -454,19 +455,19 @@ class CPaymentInitializationView(APIView):
     """
     permission_classes = [AllowAny]
 
-    def post(self, request, client_id, coach_id):
+    def post(self, request, client_id):
         try:
             client = get_object_or_404(ClientDetails, id=client_id)
             #print(getattr(settings, "CASHFREE_SECRET_KEY", None))
             # Block repeat payments
-            coach = get_object_or_404(CoachProfile, id=coach_id)
+            #coach = get_object_or_404(CoachProfile, id=coach_id)
             if client.payment_status == "paid":
                 return Response({"error": "Payment already completed for this client."},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Pricing lookup (coach level + 'international' plan row to mirror your Razorpay logic)
                    # 'junior' | 'senior' | 'elite'
-            coach_level = coach.coach_level        # 'junior' | 'senior' | 'elite'
+            coach_level = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
             location = "domestic"
             cat = get_object_or_404(Category, coach_level=coach_level, location=location)
 
@@ -873,3 +874,26 @@ class ClinetCoachTableViewSet(viewsets.ReadOnlyModelViewSet):
 
         return qs
 
+
+
+from django.core.mail import send_mail
+import os
+
+class TestEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            send_mail(
+                subject="Test Email from TruFit",
+                message="This is a test email sent from the TruFit backend.",
+                from_email="abishek.129.203@gmail.com",  # Must be a verified email
+                recipient_list=["abishek.129.203@gmail.com"],
+                fail_silently=False,
+            )
+            return Response({"message": "Test email sent successfully."}, status=status.HTTP_200_OK      )
+        except Exception as e:
+            #print("SMTP USER:", os.environ.get("SES_SMTP_USER"))
+            print("SMTP PASS:", os.environ.get("AWS_SES_ACCESS_KEY_ID"))    
+            #print("SMTP PASS LEN:", os.environ.get("SES_SMTP_PASS",""))
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        

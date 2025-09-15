@@ -168,6 +168,7 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
             "email",
             "phone_number",
             "residence",
+            "coach",
             "created_date",
             "payment_mode",
             "plan",

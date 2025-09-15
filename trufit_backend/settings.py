@@ -107,6 +107,7 @@ ASGI_APPLICATION = "trufit_backend.asgi.application"
 WSGI_APPLICATION = 'trufit_backend.wsgi.application'
 
 
+
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -231,3 +232,22 @@ RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
 CASHFREE_APP_ID = os.getenv("CASHFREE_APP_ID")
 CASHFREE_SECRET_KEY = os.getenv("CASHFREE_SECRET_KEY")
+
+
+EMAIL_BACKEND = 'django_ses.SESBackend'
+
+#EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"  # your region
+#EMAIL_PORT = 587
+#EMAIL_USE_TLS = True
+
+#EMAIL_HOST_USER = os.environ.get("SES_SMTP_USER")       # from SES SMTP creds
+#EMAIL_HOST_PASSWORD = os.environ.get("SES_SMTP_PASS")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_SES_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SES_SECRET_ACCESS_KEY")
+AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME", "ap-south-1")
+AWS_SES_REGION_ENDPOINT = f"email.{AWS_SES_REGION_NAME}.amazonaws.com"
+
+DEFAULT_FROM_EMAIL = "abishek.129.203@gmail.com"
+
+
+  # must be the verified email

@@ -1,7 +1,7 @@
 from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
-from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet
+from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView
 
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
@@ -20,7 +20,7 @@ urlpatterns = [
     path('int-payment-init/<int:client_id>/<int:coach_id>/', RPaymentInitializationView.as_view(), name = 'payment-init-int'),
     path('int-payment-verify/', RPaymentVerificationView.as_view(), name = "payment-verify-int" ),
     path('ind-buy-now/', CBuyNowAPIView.as_view(), name = "ind-buy-now" ),
-    path('ind-payment-init/<int:client_id>/<int:coach_id>/', CPaymentInitializationView.as_view(), name = 'payment-init-ind'),
+    path('ind-payment-init/<int:client_id>/', CPaymentInitializationView.as_view(), name = 'payment-init-ind'),
     path('ind-payment-verify/', CPaymentVerificationView.as_view(), name = "payment-verify-ind"),
     path("cashfree-webhook/", CPaymentWebhookView.as_view(), name = "cashfree-webhook"),
     path("cashfree-webhook2/",CashfreeWebhookView.as_view(), name = 'webhook'),
@@ -29,6 +29,7 @@ urlpatterns = [
     path("auth/admin/login/", AdminLoginView.as_view(), name="admin-login"),
     path("auth/token/refresh/", RefreshView.as_view(), name="token_refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
+    path("send-test-email/", TestEmailView.as_view(), name="send_test_email"),  
     
 
 ] 
