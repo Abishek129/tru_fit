@@ -308,7 +308,48 @@ class CoachRevenue(models.Model):
 
 
     
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+from django.contrib.auth.hashers import make_password
 
+class PasswordResetOTP(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='password_reset_otps'
+    )
+    otp = models.CharField(max_length=6)
+    temp_password_hashed = models.CharField(max_length=256)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'otp']),
+            models.Index(fields=['expires_at']),
+        ]
+        # One active token per user
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'used'],
+                condition=models.Q(used=False),
+                name='unique_active_reset_token_per_user'
+            )
+        ]
+
+    @classmethod
+    def create_new(cls, user, otp, raw_temp_password, ttl_minutes=10):
+        now = timezone.now()
+        return cls.objects.create(
+            user=user,
+            otp=otp,
+            temp_password_hashed=make_password(raw_temp_password),
+            created_at=now,
+            expires_at=now + timezone.timedelta(minutes=ttl_minutes),
+            used=False,
+        )
 
 
 

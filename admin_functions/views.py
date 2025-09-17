@@ -1076,3 +1076,45 @@ class CoachClientListView(generics.ListAPIView):
                 raise ValidationError({"active": "Use true or false."})
             qs = qs.filter(active=(active.lower() == "true"))
         return qs
+    
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import ForgotPasswordRequestSerializer, VerifyOTPSerializer
+
+class ForgotPasswordRequestView(APIView):
+    permission_classes = []  # AllowAny
+    authentication_classes = []
+
+    def post(self, request):
+        """
+        POST { "email": "user@example.com", "new_password": "NewStrongPass123" }
+        """
+        serializer = ForgotPasswordRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.save()
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class VerifyOTPView(APIView):
+    permission_classes = []  # AllowAny
+    authentication_classes = []
+
+    def post(self, request):
+        """
+        POST { "email": "user@example.com", "otp": "123456" }
+        """
+        serializer = VerifyOTPSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.save()
+        return Response(data, status=status.HTTP_200_OK)
+    
+
+
+from django.utils.dateparse import parse_date
+from .models import Clinet_Coach
+from django.db.models import Sum
+

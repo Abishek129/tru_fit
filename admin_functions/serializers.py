@@ -138,7 +138,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
-from .models import ClientDetails, Clinet_Coach, CoachProfile  # adjust import path
+from .models import ClientDetails, Clinet_Coach, CoachProfile, CoachRevenue  # adjust import path
 
 # --- Nested mini serializers (read-only) ---
 
@@ -176,34 +176,30 @@ class ClientDetailsSerializer(serializers.ModelSerializer):
             "payment_status",
         ]
 class ClientCoachReadSerializer(serializers.ModelSerializer):
-    """
-    Use this for list/detail responses. Shows nested minimal info.
-    """
-    client = ClientMiniSerializer(source="client", read_only=True)
-    coach = CoachMiniSerializer(source="coach", read_only=True)
+    client = ClientMiniSerializer(read_only=True)  # remove source="client"
+    coach  = CoachMiniSerializer(read_only=True)   # remove source="coach"
 
-    # Handy computed fields (optional)
     client_name = serializers.CharField(source="client.name", read_only=True)
     coach_name  = serializers.CharField(source="coach.name", read_only=True)
 
     class Meta:
         model = Clinet_Coach
         fields = [
-            "id",
-            "client",        # nested mini
-            "coach",         # nested mini
-            "client_name",   # quick access
-            "coach_name",    # quick access
-            "start_date",
-            "duration_weeks",
-            "active",
-            "us_revenue",
-            "inr_revenue",
+            "id", "client", "coach", "client_name", "coach_name",
+            "start_date", "duration_weeks", "active", "us_revenue", "inr_revenue",
         ]
 
-class CoachRevenueSerializer(serializers.ModelSerializer):  
-    coach = CoachMiniSerializer(source = 'coach', read_only=True)
-    client = ClientMiniSerializer(source = 'client', read_only=True)
+class CoachRevenueSerializer(serializers.ModelSerializer):
+    coach = CoachMiniSerializer(read_only=True)
+
+    class Meta:
+        model = CoachRevenue
+        fields = ["id", "coach", "us_revenue", "inr_revenue"]
+
+
+class CoachTableSerializer(serializers.ModelSerializer):
+    coach = CoachMiniSerializer(read_only=True)   # ← remove source=
+    client = ClientMiniSerializer(read_only=True) # ← remove source=
 
     class Meta:
         model = Clinet_Coach
@@ -211,30 +207,12 @@ class CoachRevenueSerializer(serializers.ModelSerializer):
             "id",
             "coach",
             "client",
+            "start_date",
+            "duration_weeks",
+            "active",
             "inr_revenue",
             "us_revenue",
         ]
-
-
-
-class CoachTableSerializer(serializers.ModelSerializer):
-    coach = CoachMiniSerializer(source = 'coach',read_only=True)
-    client = ClientMiniSerializer(source = 'client',read_only=True)
-    
-    class Meta:
-        model = Clinet_Coach
-        fields = [
-            "id",
-            "coach",
-            "client",   
-            "start_date",
-            "duration_weeks",   
-            "active",
-            "inr_revenue",            
-            "us_revenue",
-        ]   
-    
-
 
 class ClinetCoachTableSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.name", read_only=True)
@@ -476,3 +454,93 @@ class AdminOnlyTokenObtainPairSerializer(EmailTokenObtainPairSerializer):
         if not self.user.is_staff:
             raise AuthenticationFailed("Admin access only.")
         return data
+    
+
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+from django.utils import timezone
+from .models import PasswordResetOTP
+import random
+
+User = get_user_model()
+
+def generate_otp(n=6):
+    # 6-digit numeric OTP
+    return ''.join(str(random.randint(0, 9)) for _ in range(n))
+
+class ForgotPasswordRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    new_password = serializers.CharField(min_length=6, write_only=True)
+
+    def validate_email(self, value):
+        try:
+            self.user = User.objects.get(email__iexact=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("No account found with this email.")
+        if not self.user.is_active:
+            raise serializers.ValidationError("User account is disabled.")
+        return value
+
+    def create(self, validated_data):
+        user = self.user
+        new_password = validated_data['new_password']
+
+        # If there is an existing active token, mark it used to avoid uniqueness conflicts
+        PasswordResetOTP.objects.filter(user=user, used=False).update(used=True)
+
+        otp = generate_otp(6)
+        reset_obj = PasswordResetOTP.create_new(user, otp, new_password, ttl_minutes=10)
+
+        # Send email (assumes EMAIL settings configured)
+        from django.core.mail import send_mail
+        send_mail(
+            subject="Your password reset OTP",
+            message=f"Hi {user.name or 'there'},\n\nYour OTP is: {otp}\nThis code expires in 10 minutes.\n\nIf you did not request this, please ignore.",
+            from_email=None,  # uses DEFAULT_FROM_EMAIL
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        return {"detail": "OTP sent to email."}
+
+
+class VerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
+
+    def validate(self, attrs):
+        email = attrs['email']
+        otp = attrs['otp']
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({"email": "No account found with this email."})
+
+        now = timezone.now()
+        try:
+            record = PasswordResetOTP.objects.get(user=user, used=False)
+        except PasswordResetOTP.DoesNotExist:
+            raise serializers.ValidationError({"otp": "No active OTP found. Please request a new one."})
+
+        if record.expires_at < now:
+            raise serializers.ValidationError({"otp": "OTP has expired. Please request a new one."})
+        if record.otp != otp:
+            raise serializers.ValidationError({"otp": "Invalid OTP."})
+
+        self.user = user
+        self.record = record
+        return attrs
+
+    def save(self, **kwargs):
+        # Set user's password to the already-hashed temp password
+        user = self.user
+        record = self.record
+        user.password = record.temp_password_hashed  # already hashed via make_password
+        user.save(update_fields=['password'])
+
+        record.used = True
+        record.save(update_fields=['used'])
+
+        return {"detail": "Password has been reset successfully."}
+
+
+
