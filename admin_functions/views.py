@@ -1118,3 +1118,11 @@ from django.utils.dateparse import parse_date
 from .models import Clinet_Coach
 from django.db.models import Sum
 
+
+class TestGitView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        #total_revenue = CoachRevenue.objects.aggregate(total=Sum('inr_revenue'))['total'] or 0
+        return Response({"message": "Git test successful!"}, status=status.HTTP_200_OK)
+
