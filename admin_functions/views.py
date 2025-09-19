@@ -5,7 +5,7 @@ from django.shortcuts import render
 # admin_functions/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach, CoachRevenue
+from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach, CoachRevenue, Finance_details
 from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer, ClientTableSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -411,7 +411,7 @@ class CBuyNowAPIView(APIView):
                 )
 
                         
-
+            finace_details = Finance_details.objects.create(client=client, location="domestic")
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
 
@@ -733,6 +733,9 @@ class CPaymentWebhookView(APIView):
         if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
             if client_obj and client_obj.payment_status != "paid":
                 client_obj.payment_status = "paid"
+                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
+                finance.amount_paid += order_amt
+                finance.save()
                 client_obj.save(update_fields=["payment_status"])
                 log.info("Client %s marked PAID (amount=%s %s)", client_id, order_amt, order_cur)
             return Response({"ok": True}, status=200)
@@ -741,6 +744,8 @@ class CPaymentWebhookView(APIView):
         if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
             log.info("Payment not completed: %s (%s)", p_status, p_msg)
             # Optionally: persist last failure reason on the client/order model.
+            finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
+            del finance
             return Response({"ok": True}, status=200)
 
         # Unknown event type—acknowledge to stop retries, but log for review.
@@ -829,7 +834,7 @@ class CashfreeWebhookView(View):
                 client_obj.payment_date = timezone.now()
                 if client_obj.plan != 1:
                     client_obj.active = True
-                    active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                    active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client += order_amt 
                     coach_revnue = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                     coach_revnue.inr_revenue += order_amt
@@ -839,7 +844,16 @@ class CashfreeWebhookView(View):
                     print(active_client)
                 else:
                     active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
-                    active_client.delete()
+                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
+                finance.amount_paid += order_amt
+                if client_obj.plan == 1:
+                    finance.end_date = timezone.now()
+                elif client_obj.plan == 2:
+                    finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                elif client_obj.plan == 3:
+                    finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                
+                finance.save()
                 client_obj.save()
                 log.info("Client %s marked PAID (amount=%s %s, cf_payment_id=%s)",
                          client_id, order_amt, order_cur, cf_payment_id)
@@ -847,9 +861,8 @@ class CashfreeWebhookView(View):
 
         if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
             log.info("Payment not completed: status=%s msg=%s cf_payment_id=%s", p_status, p_msg, cf_payment_id)
-            active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
-            print(active_client)
-            active_client.delete()
+            finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
+            del finance
             return JsonResponse({"ok": True}, status=200)
 
         log.warning("Unhandled webhook type: %s", event_type)
@@ -1125,4 +1138,47 @@ class TestGitView(APIView):
     def get(self, request):
         #total_revenue = CoachRevenue.objects.aggregate(total=Sum('inr_revenue'))['total'] or 0
         return Response({"message": "Git test successful!"}, status=status.HTTP_200_OK)
+    
 
+
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+class FinanceDomesticView(APIView):
+    """
+    API endpoint that creates/updates Finance_details for a client.
+    If the client already has a Finance_details record, it updates the amount_paid.
+    Otherwise, it creates a new Finance_details record.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            start_date_str = request.data.get("start_date")
+            end_date_str = request.data.get("end_date")
+            current_date = request.data.get("current_date")
+
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d") if start_date_str else None
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d") if end_date_str else None
+            current_date = datetime.strptime(current_date, "%Y-%m-%d") if current_date else None
+
+            if current_date:
+                total_active_users = Finance_details.objects.filter(location="domestic", end_date__gte=current_date).count()
+                new_signups = Finance_details.objects.filter(location="domestic", start_date__lte=current_date).count()
+            else:
+                query = Finance_details.objects.filter(location="domestic", start_date__gte=start_date)
+                if end_date:
+                    query = query.filter(end_date__gte=end_date)
+                total_active_users = query.count()
+
+                new_signups = Finance_details.objects.filter(location="domestic", start_date__lte=start_date).count()
+
+            return Response({
+                "total_active_users": total_active_users,
+                "new_signups": new_signups,
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error in FinanceDomesticView: {str(e)}")
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

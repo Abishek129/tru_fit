@@ -149,7 +149,7 @@ CHANNEL_LAYERS = {
 
 
 CELERY_TASK_ALWAYS_EAGER = True
-CELERY_IMPORTS = ('authentication.tasks',)
+#CELERY_IMPORTS = ('authentication.tasks',)
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 

@@ -216,7 +216,7 @@ class Clinet_Coach(models.Model):
     coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='coach_clients_rel')
     start_date = models.DateField(default=timezone.now)
     duration_weeks = models.PositiveIntegerField(blank=True, null=True)
-    active = models.BooleanField(default=True)
+    active = models.BooleanField(default=False)
     us_revenue = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     inr_revenue = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
@@ -351,6 +351,23 @@ class PasswordResetOTP(models.Model):
             used=False,
         )
 
+
+
+class Finance_details(models.Model):
+    client = models.ForeignKey(ClientDetails, on_delete=models.SET_NULL, related_name='finance_details', null=True)
+    start_date = models.DateField(default=timezone.now)
+    end_date = models.DateField(null=True, blank=True)
+    LOCATION_CHOICES = [
+        ('domestic',      'DOMESTIC'),
+        ('international', 'INTERNATIONAL'),
+    ]
+    location = models.CharField(max_length=20, choices=LOCATION_CHOICES)
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+
+    def __str__(self):
+        return f"{self.client.name} - {self.location} - {self.amount_paid}"
+    
 
 
     

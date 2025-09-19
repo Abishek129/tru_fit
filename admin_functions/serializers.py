@@ -1,6 +1,6 @@
 # admin_functions/serializers.py
 from rest_framework import serializers
-from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Clinet_Coach, ActiveClient 
+from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Clinet_Coach, ActiveClient , Finance_details
 
 class BlogSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField(read_only=True)
@@ -544,3 +544,16 @@ class VerifyOTPSerializer(serializers.Serializer):
 
 
 
+class FinancialReportSerializer(serializers.Serializer):
+    client = ClientMiniSerializer(read_only=True)
+    
+    class Meta:
+        model = Finance_details
+        fields = [
+            "id",
+            "client",
+            'start_date',
+            'end_date',
+            "location",
+            "amount_paid",
+        ]
