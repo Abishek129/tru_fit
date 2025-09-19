@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView 
-from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView 
+from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , FinanceDomesticView, CoachSummaryView
 
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
@@ -38,6 +38,11 @@ urlpatterns = [
     path('forgot-password/', ForgotPasswordRequestView.as_view(), name='forgot-password-request'),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
     path('coach-revenue/<int:coach_id>/', CoachRevenueView.as_view(), name='coach-revenue'),
+    path('finance-domestic/', FinanceDomesticView.as_view(), name='finance-domestic'),
+    path('finance-domestic/<slug:start_date>/', FinanceDomesticView.as_view(), name='finance-domestic-start'),
+    path('finance-domestic/<slug:start_date>/<slug:end_date>/', FinanceDomesticView.as_view(), name='finance-domestic-range'),      
+    path('finance-domestic/<slug:current_date>/', FinanceDomesticView.as_view(), name='finance-domestic-coach'),
+    path('coach/summary/', CoachSummaryView.as_view(), name='coach-summary'),
     
     #path('revenue-summary/', RevenueSummaryView.as_view(), name='revenue-summary'),
 

@@ -835,7 +835,7 @@ class CashfreeWebhookView(View):
                 if client_obj.plan != 1:
                     client_obj.active = True
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
-                    active_client += float(order_amt) 
+                    active_client.inr_revenue += float(order_amt) 
                     coach_revnue = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                     coach_revnue.inr_revenue += float(order_amt)
                     coach_revnue.save()
@@ -1202,3 +1202,46 @@ class FinanceDomesticView(APIView):
         except Exception as e:
             logger.error(f"Error in FinanceDomesticView: {str(e)}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+from django.db.models import Sum, Count, Q, Value, DecimalField
+from django.db.models.functions import Coalesce
+from rest_framework.generics import ListAPIView
+from .models import CoachProfile
+from .serializers import CoachSummarySerializer
+
+from .serializers import CoachSummarySerializer  # update this too
+
+class CoachSummaryView(ListAPIView):
+    serializer_class = CoachSummarySerializer
+
+    def get_queryset(self):
+        start = self.request.query_params.get('start_date')
+        end   = self.request.query_params.get('end_date')
+
+        cc_filter = Q()
+        if start:
+            cc_filter &= Q(coach_clients_rel__start_date__gte=start)
+        if end:
+            cc_filter &= Q(coach_clients_rel__start_date__lte=end)
+
+        # active client = ClientDetails.active=True (based on your spec)
+        active_filter = Q(coach_clients__active=True)
+
+        return (
+            CoachProfile.objects
+            .annotate(
+                num_total_clients=Count('coach_clients_rel', filter=cc_filter, distinct=True),
+                num_active_clients=Count('coach_clients', filter=active_filter, distinct=True),
+                total_us_revenue=Coalesce(
+                    Sum('coach_clients_rel__us_revenue', filter=cc_filter),
+                    Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
+                ),
+                total_inr_revenue=Coalesce(
+                    Sum('coach_clients_rel__inr_revenue', filter=cc_filter),
+                    Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
+                ),
+            )
+            .only('id', 'name', 'coach_level')
+        )
+    
