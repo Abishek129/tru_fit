@@ -1061,6 +1061,26 @@ class CoachClientListView(generics.ListAPIView):
             qs = qs.filter(active=(active.lower() == "true"))
         return qs
     
+from django.db.models import Sum
+
+class CoachRevenueView(APIView):
+    """
+    API endpoint to return total US and INR revenue for a given coach.
+    """
+
+    def get(self, request, coach_id):
+        try:
+            totals = Clinet_Coach.objects.filter(coach_id=coach_id).aggregate(
+                total_us_revenue=Sum('us_revenue'),
+                total_inr_revenue=Sum('inr_revenue')
+            )
+            return Response(totals, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
