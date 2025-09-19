@@ -846,7 +846,7 @@ class CashfreeWebhookView(View):
                     print(active_client)
                 else:
                     active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
-                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
+                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date').first()
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
                     finance.end_date = timezone.now()
