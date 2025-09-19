@@ -835,9 +835,9 @@ class CashfreeWebhookView(View):
                 if client_obj.plan != 1:
                     client_obj.active = True
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
-                    active_client += order_amt 
+                    active_client += float(order_amt) 
                     coach_revnue = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
-                    coach_revnue.inr_revenue += order_amt
+                    coach_revnue.inr_revenue += float(order_amt)
                     coach_revnue.save()
                     active_client.active = True
                     active_client.save()
