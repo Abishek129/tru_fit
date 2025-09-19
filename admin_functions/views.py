@@ -835,9 +835,9 @@ class CashfreeWebhookView(View):
                 if client_obj.plan != 1:
                     client_obj.active = True
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
-                    active_client.inr_revenue += float(order_amt) 
+                    active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     coach_revnue = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
-                    coach_revnue.inr_revenue += float(order_amt)
+                    coach_revnue.inr_revenue = (coach_revnue.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     coach_revnue.save()
                     active_client.active = True
                     active_client.save()
@@ -845,7 +845,7 @@ class CashfreeWebhookView(View):
                 else:
                     active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
-                finance.amount_paid += order_amt
+                finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
                     finance.end_date = timezone.now()
                 elif client_obj.plan == 2:
