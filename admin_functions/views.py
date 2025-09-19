@@ -1163,16 +1163,23 @@ class TestGitView(APIView):
     
 
 
-from datetime import datetime
+from datetime import datetime, date
+from django.db.models import Q
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from .models import Finance_details
 import logging
 
 logger = logging.getLogger(__name__)
 
 class FinanceDomesticView(APIView):
     """
-    API endpoint that creates/updates Finance_details for a client.
-    If the client already has a Finance_details record, it updates the amount_paid.
-    Otherwise, it creates a new Finance_details record.
+    Returns:
+      - total_active_users: domestic users active at a point date (current_date),
+        or any time during a date window [start_date, end_date] if provided.
+      - new_signups: domestic users whose start_date falls within the same point/date window.
     """
     permission_classes = [AllowAny]
 
@@ -1180,29 +1187,73 @@ class FinanceDomesticView(APIView):
         try:
             start_date_str = request.data.get("start_date")
             end_date_str = request.data.get("end_date")
-            current_date = request.data.get("current_date")
+            current_date_str = request.data.get("current_date")
 
-            start_date = datetime.strptime(start_date_str, "%Y-%m-%d") if start_date_str else None
-            end_date = datetime.strptime(end_date_str, "%Y-%m-%d") if end_date_str else None
-            current_date = datetime.strptime(current_date, "%Y-%m-%d") if current_date else None
+            # Parse to date objects (not datetimes)
+            def parse_d(d):
+                return datetime.strptime(d, "%Y-%m-%d").date() if d else None
 
+            start_date = parse_d(start_date_str)
+            end_date = parse_d(end_date_str)
+            current_date = parse_d(current_date_str)
+
+            qs = Finance_details.objects.filter(location="domestic")
+
+            # Point-in-time mode (current_date provided)
             if current_date:
-                total_active_users = Finance_details.objects.filter(location="domestic", end_date__gte=current_date).count()
-                new_signups = Finance_details.objects.filter(location="domestic", start_date__lte=current_date).count()
-            else:
-                query = Finance_details.objects.filter(location="domestic", start_date__gte=start_date)
-                if end_date:
-                    query = query.filter(end_date__gte=end_date)
-                total_active_users = query.count()
+                # Active at current_date
+                active_filter = (
+                    Q(start_date__lte=current_date) &
+                    (Q(end_date__isnull=True) | Q(end_date__gte=current_date))
+                )
+                total_active_users = qs.filter(active_filter).count()
 
-                new_signups = Finance_details.objects.filter(location="domestic", start_date__lte=start_date).count()
+                # New signups up to current_date (cumulative) — matches your prior behavior
+                # If you want only "signups ON that date", use start_date=current_date.
+                new_signups = qs.filter(start_date__lte=current_date).count()
+
+                return Response({
+                    "total_active_users": total_active_users,
+                    "new_signups": new_signups,
+                }, status=status.HTTP_200_OK)
+
+            # Window mode ([start_date, end_date])
+            # If only one bound given, assume a 1-day window at that date.
+            if start_date and not end_date:
+                end_date = start_date
+            if end_date and not start_date:
+                start_date = end_date
+            if not start_date and not end_date:
+                # No dates provided: use today as point-in-time
+                today = date.today()
+                active_filter = (
+                    Q(start_date__lte=today) &
+                    (Q(end_date__isnull=True) | Q(end_date__gte=today))
+                )
+                total_active_users = qs.filter(active_filter).count()
+                new_signups = qs.filter(start_date__lte=today).count()
+                return Response({
+                    "total_active_users": total_active_users,
+                    "new_signups": new_signups,
+                }, status=status.HTTP_200_OK)
+
+            # Overlap logic for [start_date, end_date]
+            overlap = (
+                Q(start_date__lte=end_date) &
+                (Q(end_date__isnull=True) | Q(end_date__gte=start_date))
+            )
+            total_active_users = qs.filter(overlap).count()
+
+            # New signups within window (inclusive)
+            new_signups = qs.filter(start_date__gte=start_date, start_date__lte=end_date).count()
 
             return Response({
                 "total_active_users": total_active_users,
                 "new_signups": new_signups,
             }, status=status.HTTP_200_OK)
+
         except Exception as e:
-            logger.error(f"Error in FinanceDomesticView: {str(e)}")
+            logger.error(f"Error in FinanceDomesticView: {str(e)}", exc_info=True)
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
