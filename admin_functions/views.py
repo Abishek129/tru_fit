@@ -1174,7 +1174,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class FinanceDomesticView(APIView):
+class NewSignupsDomesticView(APIView):
     """
     Returns:
       - total_active_users: domestic users active at a point date (current_date),
@@ -1255,6 +1255,205 @@ class FinanceDomesticView(APIView):
         except Exception as e:
             logger.error(f"Error in FinanceDomesticView: {str(e)}", exc_info=True)
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class NewSignupsIntView(APIView):
+    """
+    Returns:
+      - total_active_users: domestic users active at a point date (current_date),
+        or any time during a date window [start_date, end_date] if provided.
+      - new_signups: domestic users whose start_date falls within the same point/date window.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            start_date_str = request.data.get("start_date")
+            end_date_str = request.data.get("end_date")
+            current_date_str = request.data.get("current_date")
+
+            # Parse to date objects (not datetimes)
+            def parse_d(d):
+                return datetime.strptime(d, "%Y-%m-%d").date() if d else None
+
+            start_date = parse_d(start_date_str)
+            end_date = parse_d(end_date_str)
+            current_date = parse_d(current_date_str)
+
+            qs = Finance_details.objects.filter(location="international")
+
+            # Point-in-time mode (current_date provided)
+            if current_date:
+                # Active at current_date
+                active_filter = (
+                    Q(start_date__lte=current_date) &
+                    (Q(end_date__isnull=True) | Q(end_date__gte=current_date))
+                )
+                total_active_users = qs.filter(active_filter).count()
+
+                # New signups up to current_date (cumulative) — matches your prior behavior
+                # If you want only "signups ON that date", use start_date=current_date.
+                new_signups = qs.filter(start_date__lte=current_date).count()
+
+                return Response({
+                    "total_active_users": total_active_users,
+                    "new_signups": new_signups,
+                }, status=status.HTTP_200_OK)
+
+            # Window mode ([start_date, end_date])
+            # If only one bound given, assume a 1-day window at that date.
+            if start_date and not end_date:
+                end_date = start_date
+            if end_date and not start_date:
+                start_date = end_date
+            if not start_date and not end_date:
+                # No dates provided: use today as point-in-time
+                today = date.today()
+                active_filter = (
+                    Q(start_date__lte=today) &
+                    (Q(end_date__isnull=True) | Q(end_date__gte=today))
+                )
+                total_active_users = qs.filter(active_filter).count()
+                new_signups = qs.filter(start_date__lte=today).count()
+                return Response({
+                    "total_active_users": total_active_users,
+                    "new_signups": new_signups,
+                }, status=status.HTTP_200_OK)
+
+            # Overlap logic for [start_date, end_date]
+            overlap = (
+                Q(start_date__lte=end_date) &
+                (Q(end_date__isnull=True) | Q(end_date__gte=start_date))
+            )
+            total_active_users = qs.filter(overlap).count()
+
+            # New signups within window (inclusive)
+            new_signups = qs.filter(start_date__gte=start_date, start_date__lte=end_date).count()
+
+            return Response({
+                "total_active_users": total_active_users,
+                "new_signups": new_signups,
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error in InternationalView: {str(e)}", exc_info=True)
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+from django.db.models import Q, Sum, Value, DecimalField
+from django.db.models.functions import Coalesce
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework import status
+
+from .models import Finance_details
+
+class FinanceAmountByLocationView(APIView):
+    """
+    POST body (all optional):
+      - location: "domestic" | "international" | "all" (default: "domestic")
+      - current_date: "YYYY-MM-DD"  # point-in-time
+      - start_date: "YYYY-MM-DD"    # window start
+      - end_date: "YYYY-MM-DD"      # window end
+
+    Inclusion rule:
+      - Point-in-time (D): records with start_date <= D and (end_date IS NULL or end_date >= D)
+      - Window [S, E]:     records with start_date <= E and (end_date IS NULL or end_date >= S)
+
+    Returns:
+      - If location != 'all': { "location": "<loc>", "total_amount_paid": "<Decimal as string>" }
+      - If location == 'all': {
+            "totals": [
+                {"location": "domestic", "total_amount_paid": "<...>"},
+                {"location": "international", "total_amount_paid": "<...>"}
+            ],
+            "grand_total": "<...>"
+        }
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            location = (request.data.get("location") or "domestic").lower().strip()
+            start_date_str = request.data.get("start_date")
+            end_date_str = request.data.get("end_date")
+            current_date_str = request.data.get("current_date")
+
+            def parse_date(s):
+                return datetime.strptime(s, "%Y-%m-%d").date() if s else None
+
+            start_date = parse_date(start_date_str)
+            end_date = parse_date(end_date_str)
+            current_date = parse_date(current_date_str)
+
+            base_qs = Finance_details.objects.all()
+
+            # Location filter
+            if location in {"domestic", "international"}:
+                base_qs = base_qs.filter(location=location)
+            elif location != "all":
+                return Response(
+                    {"detail": "location must be 'domestic', 'international', or 'all'."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Date logic
+            if current_date:
+                # point-in-time overlap
+                overlap = Q(start_date__lte=current_date) & (Q(end_date__isnull=True) | Q(end_date__gte=current_date))
+            else:
+                # window mode
+                if start_date and not end_date:
+                    end_date = start_date
+                if end_date and not start_date:
+                    start_date = end_date
+                if not start_date and not end_date:
+                    # default to today if nothing provided
+                    today = date.today()
+                    overlap = Q(start_date__lte=today) & (Q(end_date__isnull=True) | Q(end_date__gte=today))
+                else:
+                    overlap = Q(start_date__lte=end_date) & (Q(end_date__isnull=True) | Q(end_date__gte=start_date))
+
+            qs = base_qs.filter(overlap)
+
+            if location == "all":
+                # Breakdown by location + grand total
+                rows = (
+                    qs.values("location")
+                    .annotate(total_amount_paid=Coalesce(Sum("amount_paid"), Value(Decimal("0.00")), output_field=DecimalField(max_digits=18, decimal_places=2)))
+                    .order_by("location")
+                )
+                # Convert Decimals to strings for JSON safety & add grand total
+                totals = []
+                grand_total = Decimal("0.00")
+                for r in rows:
+                    amt = r["total_amount_paid"] or Decimal("0.00")
+                    totals.append({
+                        "location": r["location"],
+                        "total_amount_paid": str(amt),
+                    })
+                    grand_total += amt
+
+                return Response({
+                    "totals": totals,
+                    "grand_total": str(grand_total),
+                }, status=status.HTTP_200_OK)
+
+            # Single-location sum
+            total = qs.aggregate(
+                total_amount_paid=Coalesce(Sum("amount_paid"), Value(Decimal("0.00")), output_field=DecimalField(max_digits=18, decimal_places=2))
+            )["total_amount_paid"] or Decimal("0.00")
+
+            return Response({
+                "location": location,
+                "total_amount_paid": str(total),
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
 
 
 from django.db.models import Sum, Count, Q, Value, DecimalField

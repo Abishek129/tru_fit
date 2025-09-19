@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView 
-from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView
+from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView
 
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
@@ -40,7 +40,7 @@ urlpatterns = [
     path('coach-revenue/<int:coach_id>/', CoachRevenueView.as_view(), name='coach-revenue'),
     path('signups-domestic/', NewSignupsDomesticView.as_view(), name='finance-domestic'),
     path('signups-international/', NewSignupsIntView.as_view(), name='finance-international'),
-    
+    path('finance/', FinanceAmountByLocationView.as_view(), name='finance-by-location'),
     path('coach/summary/', CoachSummaryView.as_view(), name='coach-summary'),
     
     #path('revenue-summary/', RevenueSummaryView.as_view(), name='revenue-summary'),
