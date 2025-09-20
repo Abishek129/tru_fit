@@ -6,7 +6,7 @@ from django.shortcuts import render
 from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach, CoachRevenue, Finance_details
-from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer, ClientTableSerializer
+from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer, ClientTableSerializer, CoachMiniSerializer
 from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
@@ -150,18 +150,20 @@ class RecommendCoachAPIView(APIView):
         gender = request.data.get('gender')
 
         if injury:
-            if gender == "anyone":
-                coaches = CoachProfile.objects.filter(~Q(coach_level="junior"))
-            else:
-                coaches = CoachProfile.objects.filter(~Q(coach_level="junior"), gender=gender)
-                if not coaches:
-                    coaches = CoachProfile.objects.filter(~Q(coach_level="junior"))
+            # want: coach_level != "junior" AND status != "hard"
+            base = CoachProfile.objects.exclude(coach_level="junior").exclude(status="hard")
 
-        else:
             if gender == "anyone":
-                coaches = CoachProfile.objects.filter(coach_level="junior")
+                coaches = base
             else:
-                coaches = CoachProfile.objects.filter(coach_level="junior", gender=gender)
+                with_gender = base.filter(gender=gender)
+                # fallback if none: drop gender AND status constraint, keep only not-junior
+                coaches = with_gender if with_gender.exists() else CoachProfile.objects.exclude(coach_level="junior")
+        else:
+            # want: coach_level == "junior" AND status != "hard"
+            base = CoachProfile.objects.filter(coach_level="junior").exclude(status="hard")
+
+            coaches = base if gender == "anyone" else base.filter(gender=gender)
 
         # Randomize order and select only 4 coaches
         coaches = coaches.order_by('?')[:4]
@@ -169,6 +171,26 @@ class RecommendCoachAPIView(APIView):
         serializer = CoachProfileSerializer(coaches, many=True)
         return Response(serializer.data)
     
+from rest_framework.generics import ListAPIView
+from rest_framework import generics
+
+class CoachMiniListView(generics.ListAPIView):
+    queryset = CoachProfile.objects.all()
+    serializer_class = CoachMiniSerializer
+
+
+class CoachStatusUpdateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, coach_id):
+        new_status = request.data.get("status")
+        if new_status not in ["active", "soft", "hard"]:
+            return Response({"error": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
+
+        coach = get_object_or_404(CoachProfile, id=coach_id)
+        coach.status = new_status
+        coach.save()
+        return Response({"message": "Status updated"}, status=status.HTTP_200_OK)
 
 
 from django.shortcuts import get_object_or_404
@@ -1458,7 +1480,7 @@ class FinanceAmountByLocationView(APIView):
 
 from django.db.models import Sum, Count, Q, Value, DecimalField
 from django.db.models.functions import Coalesce
-from rest_framework.generics import ListAPIView
+
 from .models import CoachProfile
 from .serializers import CoachSummarySerializer
 
@@ -1497,3 +1519,24 @@ class CoachSummaryView(ListAPIView):
             .only('id', 'name', 'coach_level')
         )
     
+
+from .models import Leads
+from .serializers import LeadsSerializer
+
+
+class LeadCaptureView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LeadsSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class LeadsListView(ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = LeadsSerializer
+    queryset = Leads.objects.all().order_by('-created_at')

@@ -132,12 +132,18 @@ class CoachProfile(models.Model):
         (4, 'Intense'),
         (5, 'Very intense'),
     ]
+    status_choices = [
+        ('active', 'ACTIVE'),
+        ('soft', 'SOFT'),
+        ('hard', 'HARD'),
+    ]
 
     name = models.CharField(max_length=300)
     image = models.ImageField(upload_to='CoachProfile/', blank=True, null=True)
     gender = models.CharField(max_length=15, choices=GENDER_CHOICES, blank= True, null= True)
     experience = models.DecimalField(max_digits=5, decimal_places=2)
     coach_level = models.CharField(max_length=13, choices=COACH_LEVEL_CHOICES)
+    status = models.CharField(max_length=10, choices=status_choices, default='active')
     intensity_level = models.IntegerField(choices=INTENSITY_CHOICES, default=3)  # Added
     specializations = models.TextField(blank=True, null=True)
     specialties = models.JSONField(blank=True, null=True)  # For goals
@@ -372,4 +378,14 @@ class Finance_details(models.Model):
 
     
 
+class Leads(models.Model):
+    name = models.CharField(max_length=200)
+    email = models.EmailField(max_length=200)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    #message = models.TextField(blank=True, null=True)
+    messaged = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.email}"
 

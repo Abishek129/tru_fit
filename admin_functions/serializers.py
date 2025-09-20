@@ -72,7 +72,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoachProfile
         fields = [
-            'id', 'name', 'image', 'gender', 'experience', 'coach_level',
+            'id', 'name', 'image', 'gender', 'experience', 'coach_level','status',
             'intensity_level', 'specialties','tags','location', 'previous_work', 'approach','specializations','personality_traits',
             'bio', 'calendly_link', 'certifications', 'summary'
         ]
@@ -145,7 +145,7 @@ from .models import ClientDetails, Clinet_Coach, CoachProfile, CoachRevenue  # a
 class CoachMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoachProfile
-        fields = ["id", "name"]
+        fields = ["id", "name", "coach_level", "status"]
 
 
 class ClientMiniSerializer(serializers.ModelSerializer):
@@ -285,7 +285,7 @@ class CoachSummarySerializer(serializers.ModelSerializer):
         model = CoachProfile
         fields = (
             'id', 'name', 'coach_level',
-            'num_total_clients', 'num_active_clients',
+            'num_total_clients', 'num_active_clients', 'status',
             'total_us_revenue', 'total_inr_revenue',
         )
             
@@ -400,6 +400,8 @@ class SignupSerializer(serializers.ModelSerializer):
         if not validated_data.get("name"):
             validated_data["name"] = slugify(validated_data["email"].split("@")[0]).replace("-", " ").title()
         user = User.objects.create_user(password=password, **validated_data)
+        user.is_staff = True
+        user.save()
         return user
 
     def to_representation(self, instance):
@@ -414,35 +416,42 @@ class SignupSerializer(serializers.ModelSerializer):
         })
         return data
     
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+# Your custom User has USERNAME_FIELD = "email"
+# AbstractBaseUser already works with that.
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
-    Login with email + password (your USERNAME_FIELD is email).
-    Adds basic fields into token (optional).
+    Login with email + password.
     """
-    username_field = User.EMAIL_FIELD if hasattr(User, "EMAIL_FIELD") else "email"
+    # Make sure SimpleJWT uses 'email' as the username field:
+    username_field = "email"
 
     def validate(self, attrs):
-        # Accept either "email" or "username" in payload; map to email.
+        # Accept either "email" or "username" key in the request payload
         email = attrs.get("email") or attrs.get("username")
         password = attrs.get("password")
 
         if not email or not password:
             raise AuthenticationFailed("Email and password are required.")
 
+        # ModelBackend will accept 'username' arg too, but email is fine
         user = authenticate(
             request=self.context.get("request"),
-            username=email,  # ModelBackend uses USERNAME_FIELD internally
+            username=email,
             password=password,
         )
         if not user:
             raise AuthenticationFailed("Invalid credentials.")
-
         if not user.is_active:
             raise AuthenticationFailed("User account is disabled.")
 
         self.user = user
-        data = super().validate({"username": email, "password": password})
+
+        # IMPORTANT: pass the key matching self.username_field
+        data = super().validate({self.username_field: email, "password": password})
 
         # optional: include small profile in response
         data.update({
@@ -455,13 +464,10 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
             }
         })
         return data
-    
 
 
 class AdminOnlyTokenObtainPairSerializer(EmailTokenObtainPairSerializer):
-    """
-    Same as login but enforces is_staff True.
-    """
+    """Same as login but enforces is_staff True."""
     def validate(self, attrs):
         data = super().validate(attrs)
         if not self.user.is_staff:
@@ -570,3 +576,17 @@ class FinancialReportSerializer(serializers.Serializer):
             "location",
             "amount_paid",
         ]
+
+
+from .models import Leads
+
+
+class LeadsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Leads
+        fields = ['id', 'name', 'email', 'phone_number', 'messaged', 'created_at']
+        read_only_fields = [ 'created_at']
+        extra_kwargs = {
+            'messaged': {'default': False},
+        } 
+        
