@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView 
-from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView
+from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView
 
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
@@ -46,7 +46,8 @@ urlpatterns = [
     path('coach_status/<int:coach_id>/', CoachStatusUpdateView.as_view(), name='coach-status-update'),
     path('leads/', LeadsListView.as_view(), name='leads-list'),
     path('capture-lead/', LeadCaptureView.as_view(), name='lead-capture'),
-    
+    path('coach-count/', CoachCountView.as_view(), name='coach-count'),
+
     
     #path('revenue-summary/', RevenueSummaryView.as_view(), name='revenue-summary'),
 

@@ -1540,3 +1540,11 @@ class LeadsListView(ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = LeadsSerializer
     queryset = Leads.objects.all().order_by('-created_at')
+
+
+class CoachCountView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        count = CoachProfile.objects.all().exclude(status="hard").count()
+        return Response({"coach_count": count}, status=status.HTTP_200_OK)
