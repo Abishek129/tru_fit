@@ -2,11 +2,11 @@ from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView 
-from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView
-
+from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
+router.register(r"test-images", TestImageViewSet, basename="testimage")
 router.register(r'coaches', CoachProfileViewSet, basename='coachprofile')
 router.register(r'certifications', CoachCertificationViewSet, basename='coachcertification')
 router.register(r"plans", PlansViewSet, basename= "plans")
@@ -47,6 +47,7 @@ urlpatterns = [
     path('leads/', LeadsListView.as_view(), name='leads-list'),
     path('capture-lead/', LeadCaptureView.as_view(), name='lead-capture'),
     path('coach-count/', CoachCountView.as_view(), name='coach-count'),
+    path('create-coach/', CoachCreateView.as_view(), name='create-coach'),
 
     
     #path('revenue-summary/', RevenueSummaryView.as_view(), name='revenue-summary'),

@@ -43,17 +43,18 @@ from django.shortcuts import get_object_or_404
 class CoachProfileViewSet(viewsets.ModelViewSet):
     queryset = CoachProfile.objects.all().order_by('id')
     serializer_class = CoachProfileSerializer
-    permission_classes = [permissions.AllowAny]
+    parser_classes = (MultiPartParser, FormParser)  # force multipart
 
-    # ✅ allow file uploads + JSON fields in the same request
-    parser_classes = (MultiPartParser, FormParser, JSONParser)
+    def create(self, request, *args, **kwargs):
+        ##print("FILES:", request.FILES)
+        #print("DATA:", request.data)
 
-    # 🔎 searchable fields (removed non-existent bullet_points)
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'coach_level', 'bio', 'tags', 'location', 'specializations']
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
 
-    # ↕ ordering
-    ordering_fields = ['id', 'name', 'experience', 'coach_level']
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class CoachCertificationViewSet(viewsets.ModelViewSet):
@@ -1548,3 +1549,32 @@ class CoachCountView(APIView):
     def get(self, request):
         count = CoachProfile.objects.all().exclude(status="hard").count()
         return Response({"coach_count": count}, status=status.HTTP_200_OK)
+    
+
+
+
+
+from rest_framework import viewsets, permissions, parsers
+from .models import TestImage
+from .serializers import TestImageSerializer
+
+class TestImageViewSet(viewsets.ModelViewSet):
+    
+    queryset = TestImage.objects.all().order_by("-id")
+    print( queryset)
+    serializer_class = TestImageSerializer
+    permission_classes = [permissions.AllowAny]
+    parser_classes = (parsers.MultiPartParser, parsers.FormParser)
+
+
+class CoachCreateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        print(request.data)
+        serializer = CoachProfileSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    

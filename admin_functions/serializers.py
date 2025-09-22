@@ -64,6 +64,7 @@ class CoachCertificationSerializer(serializers.ModelSerializer):
         fields = ['id', 'certificate']
 
 
+from .models import CoachProfile, CoachCertification
 from django.db import transaction
 
 class CoachProfileSerializer(serializers.ModelSerializer):
@@ -73,8 +74,8 @@ class CoachProfileSerializer(serializers.ModelSerializer):
         model = CoachProfile
         fields = [
             'id', 'name', 'image', 'gender', 'experience', 'coach_level','status',
-            'intensity_level', 'specialties','tags','location', 'previous_work', 'approach','specializations','personality_traits',
-            'bio', 'calendly_link', 'certifications', 'summary'
+            'tags','location', 'previous_work', 'approach','specializations',
+            'bio', 'calendly_link', 'certifications', 'persnol_journey'
         ]
 
     def _normalize_certs(self, certs):
@@ -84,27 +85,17 @@ class CoachProfileSerializer(serializers.ModelSerializer):
             return [{'certificate': c.strip()} for c in certs.split(',') if c.strip()]
         out = []
         for c in certs:
-            if isinstance(c, dict):
-                name = c.get('certificate')
-            else:
-                name = str(c)
+            name = c.get('certificate') if isinstance(c, dict) else str(c)
             if name:
                 out.append({'certificate': name})
         return out
 
     @transaction.atomic
     def create(self, validated_data):
-        # IMPORTANT: remove reverse relation from validated_data
         incoming_certs = validated_data.pop('certifications', None)
-
-        # Also accept flexible formats from initial_data (e.g., CSV in multipart)
-        if incoming_certs is None and hasattr(self, 'initial_data'):
-            incoming_certs = self.initial_data.get('certifications')
+        coach = super().create(validated_data)  # use DRF’s default for normal fields (including image)
 
         certs_data = self._normalize_certs(incoming_certs)
-
-        coach = CoachProfile.objects.create(**validated_data)
-
         if certs_data:
             CoachCertification.objects.bulk_create([
                 CoachCertification(coach=coach, **cd) for cd in certs_data
@@ -113,28 +104,32 @@ class CoachProfileSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        # IMPORTANT: remove reverse relation from validated_data
         incoming_certs = validated_data.pop('certifications', None)
 
-        # Update simple fields
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
+        # handle image updates (and allow clearing)
+        image = validated_data.pop('image', serializers.empty)
+        for k, v in validated_data.items():
+            setattr(instance, k, v)
+
+        if image is not serializers.empty:
+            if image in (None, "", "null"):
+                instance.image.delete(save=False)
+                instance.image = None
+            else:
+                instance.image = image
+
         instance.save()
 
-        # Allow replacing certifications if provided (including CSV via initial_data)
-        if incoming_certs is None and hasattr(self, 'initial_data'):
-            # Only replace if the client explicitly sent the key
-            if 'certifications' in self.initial_data:
-                incoming_certs = self.initial_data.get('certifications')
+        if incoming_certs is None and hasattr(self, 'initial_data') and 'certifications' in self.initial_data:
+            incoming_certs = self.initial_data.get('certifications')
 
         if incoming_certs is not None:
             instance.certifications.all().delete()
             certs_data = self._normalize_certs(incoming_certs)
             if certs_data:
-                CoachCertification.objects.bulk_create([
-                    CoachCertification(coach=instance, **cd) for cd in certs_data
-                ])
-
+                CoachCertification.objects.bulk_create(
+                    [CoachCertification(coach=instance, **cd) for cd in certs_data]
+                )
         return instance
 
 
@@ -590,3 +585,49 @@ class LeadsSerializer(serializers.ModelSerializer):
             'messaged': {'default': False},
         } 
         
+
+
+import uuid
+from io import BytesIO
+from pathlib import Path
+from PIL import Image
+from django.core.files.base import ContentFile
+from rest_framework import serializers
+from .models import TestImage
+
+class TestImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TestImage
+        fields = ["id", "image"]
+
+    def create(self, validated_data):
+        uploaded = validated_data.pop("image", None)
+        obj = TestImage(**validated_data)
+
+        if uploaded:
+            img = Image.open(uploaded)
+            # ensure a consistent mode for saving (handles PNG/WEBP with alpha)
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+
+            # resize
+            max_size = (800, 800)
+            try:
+                resample = Image.Resampling.LANCZOS  # Pillow >= 9.1
+            except AttributeError:
+                resample = Image.LANCZOS
+            img.thumbnail(max_size, resample)
+
+            # buffer -> JPEG (or keep original format if you want)
+            buf = BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            buf.seek(0)
+
+            # unique name
+            stem = Path(uploaded.name).stem
+            name = f"test_images/{uuid.uuid4().hex}_{stem}.jpg"
+
+            obj.image.save(name, ContentFile(buf.read()), save=False)
+
+        obj.save()
+        return obj

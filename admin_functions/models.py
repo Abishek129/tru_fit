@@ -155,7 +155,7 @@ class CoachProfile(models.Model):
     
     approach = models.TextField(blank=True, null=True)
     previous_work = models.TextField(blank=True, null=True)
-    summary = models.TextField(blank=True, null = True)
+    persnol_journey = models.TextField(blank=True, null = True)
 
     def __str__(self):
         return self.name
@@ -389,3 +389,11 @@ class Leads(models.Model):
     def __str__(self):
         return f"{self.name} - {self.email}"
 
+
+from django.db import models
+
+class TestImage(models.Model):
+    image = models.ImageField(upload_to="test_images/")
+
+    def __str__(self):
+        return f"Image {self.id}"
