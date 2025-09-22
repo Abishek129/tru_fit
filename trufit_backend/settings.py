@@ -141,18 +141,15 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-REDIS_URL = os.getenv("REDIS_URL")
-
+REDIS_URL = os.getenv("REDIS_URL")  # e.g. redis://:pass@host:6379/0
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("3.110.54.63", 6379)],
-            "password": "your_strong_password",
-            "db": 0,
+            "hosts": [REDIS_URL],   # <— use URL, not (host, port) + password
         },
-    }
+    },
 }
 
 CACHES = {
