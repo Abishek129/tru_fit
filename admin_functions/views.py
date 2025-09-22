@@ -223,7 +223,7 @@ class RBuyNowAPIView(APIView):
                     payment_mode="razorpay",     # fixed
                     plan=plan
                 )
-            print(client)
+            #print(client)
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
 
@@ -531,7 +531,7 @@ class CPaymentInitializationView(APIView):
             
 
             # Choose your currency (ensure it's enabled on your Cashfree account)
-            print(plan, amount_dec)
+            #print(plan, amount_dec)
             order_currency = "INR"  # or "INR"
             order_amount = float(Decimal(amount_dec))  # Cashfree expects a float number
 
@@ -866,7 +866,7 @@ class CashfreeWebhookView(View):
                     coach_revenue_obj.save()
                     active_client.active = True
                     active_client.save()
-                    print(active_client)
+                    #print(active_client)
                 else:
                     active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date').first()
@@ -1561,7 +1561,7 @@ from .serializers import TestImageSerializer
 class TestImageViewSet(viewsets.ModelViewSet):
     
     queryset = TestImage.objects.all().order_by("-id")
-    print( queryset)
+    #print( queryset)
     serializer_class = TestImageSerializer
     permission_classes = [permissions.AllowAny]
     parser_classes = (parsers.MultiPartParser, parsers.FormParser)
@@ -1571,7 +1571,7 @@ class CoachCreateView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        print(request.data)
+        #print(request.data)
         serializer = CoachProfileSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
