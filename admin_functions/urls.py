@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView, UserProfileView
-from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view, NotificationListView, NotificationEditView 
+from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view, NotificationListView, NotificationEditView, NotificationView
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -50,6 +50,7 @@ urlpatterns = [
     path('create-coach/', CoachCreateView.as_view(), name='create-coach'),
     path('test-socket/', test_socket_view, name='test-socket'),
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
+    path('new-notifications/', NotificationView.as_view(), name='notifications'),
     path('notifications/', NotificationListView.as_view(), name='notification-list'),
     path('notifications/<int:notification_id>/', NotificationEditView.as_view(), name='notification-edit'),
 
