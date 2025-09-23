@@ -903,7 +903,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now()
                     send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
-                        title="New Consultation Call Booked",
+                
                         message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
                         
                     )
@@ -912,7 +912,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
-                        title="New 12 Week Plan Purchased",
+                        
                         message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
                         
                     )
@@ -920,7 +920,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
-                        title="New 24 Week Plan Purchased",
+                        
                         message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
                         
                     )
