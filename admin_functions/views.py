@@ -1657,6 +1657,18 @@ def test_socket_view(request):
 
 
 
+
+class NotificationView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        flag = False
+        if Notification.objects.filter(read=False).exists():
+            flag = True
+        
+        return Response({"flag" : flag}, status=status.HTTP_201_CREATED)
+
+
 class NotificationListView(ListAPIView):
     permission_classes = [AllowAny]
     Notification.objects.filter(read=False).update(read=True)
