@@ -1671,10 +1671,18 @@ class NotificationView(APIView):
 
 class NotificationListView(ListAPIView):
     permission_classes = [AllowAny]
-    Notification.objects.filter(read=False).update(read=True)
     serializer_class = NotificationSerializer
 
-    queryset = Notification.objects.all().order_by('-created_at')
+    def get_queryset(self):
+        return Notification.objects.all().order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        # this is triggered on GET
+        Notification.objects.filter(read=False).update(read=True)
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
 
 class NotificationEditView(APIView):
