@@ -2,6 +2,28 @@
 from rest_framework import serializers
 from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Clinet_Coach, ActiveClient , Finance_details
 
+
+
+
+from .models import User
+
+
+
+class UserSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "name", "phone_number", "image", "image_url", "date_joined"]
+        read_only_fields = ["id", "email", "date_joined"]
+
+    def get_image_url(self, obj):
+        try:
+            return obj.image.url if obj.image else None
+        except Exception:
+            return None
+
+
 class BlogSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField(read_only=True)
     content_url = serializers.SerializerMethodField(read_only=True)
@@ -381,8 +403,8 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email", "password", "name", "phone_number", "user_type"]
-        extra_kwargs = {"user_type": {"required": False}}
+        fields = ["email", "password", "name", "phone_number", ]
+        
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
@@ -454,8 +476,8 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "id": user.id,
                 "email": user.email,
                 "name": user.name,
-                "is_staff": user.is_staff,
-                "user_type": user.user_type,
+                "is_staff": user.is_staff
+               
             }
         })
         return data
@@ -484,7 +506,7 @@ def generate_otp(n=6):
 
 class ForgotPasswordRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    new_password = serializers.CharField(min_length=6, write_only=True)
+    #new_password = serializers.CharField(min_length=6, write_only=True)
 
     def validate_email(self, value):
         try:
@@ -497,13 +519,13 @@ class ForgotPasswordRequestSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         user = self.user
-        new_password = validated_data['new_password']
+        #new_password = validated_data['new_password']
 
         # If there is an existing active token, mark it used to avoid uniqueness conflicts
         PasswordResetOTP.objects.filter(user=user, used=False).update(used=True)
 
         otp = generate_otp(6)
-        reset_obj = PasswordResetOTP.create_new(user, otp, new_password, ttl_minutes=10)
+        reset_obj = PasswordResetOTP.create_new(user, otp, ttl_minutes=10)
 
         # Send email (assumes EMAIL settings configured)
         from django.core.mail import send_mail

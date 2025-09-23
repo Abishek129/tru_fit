@@ -52,6 +52,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=150, blank=True, null=True)
+    image = models.ImageField(upload_to='admin_dp/', blank=True, null=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='customer')
     
@@ -326,7 +327,7 @@ class PasswordResetOTP(models.Model):
         related_name='password_reset_otps'
     )
     otp = models.CharField(max_length=6)
-    temp_password_hashed = models.CharField(max_length=256)
+    #temp_password_hashed = models.CharField(max_length=256)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)
@@ -346,12 +347,12 @@ class PasswordResetOTP(models.Model):
         ]
 
     @classmethod
-    def create_new(cls, user, otp, raw_temp_password, ttl_minutes=10):
+    def create_new(cls, user, otp, ttl_minutes=10):
         now = timezone.now()
         return cls.objects.create(
             user=user,
             otp=otp,
-            temp_password_hashed=make_password(raw_temp_password),
+            #temp_password_hashed=make_password(raw_temp_password),
             created_at=now,
             expires_at=now + timezone.timedelta(minutes=ttl_minutes),
             used=False,
@@ -397,3 +398,7 @@ class TestImage(models.Model):
 
     def __str__(self):
         return f"Image {self.id}"
+    
+
+
+

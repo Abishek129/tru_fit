@@ -7,13 +7,39 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach, CoachRevenue, Finance_details
 from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer, ClientTableSerializer, CoachMiniSerializer
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from .permissions import IsAuthenticatedAndStaff
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
+from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
+import re
+from rest_framework import generics
+from .serializers import UserSerializer
+
+class UserProfileView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticatedAndStaff]
+
+    def get_object(self):
+        # Always operate on the logged-in user
+        return self.request.user
+
+    def delete(self, request, *args, **kwargs):
+        user = self.get_object()
+        user.is_active = False   # safer than full delete (soft delete)
+        user.save(update_fields=["is_active"])
+        return Response({"message": "User account deactivated."}, status=status.HTTP_200_OK)
 
 class BlogViewSet(viewsets.ModelViewSet):
     """
     CRUD for Blog with file upload support.
     """
+
+
     permission_classes = [AllowAny]
     queryset = Blog.objects.order_by("-created_at")
     serializer_class = BlogSerializer
@@ -1156,6 +1182,10 @@ class ForgotPasswordRequestView(APIView):
         data = serializer.save()
         return Response(data, status=status.HTTP_200_OK)
 
+from .models import PasswordResetOTP
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 class VerifyOTPView(APIView):
     permission_classes = []  # AllowAny
@@ -1165,10 +1195,26 @@ class VerifyOTPView(APIView):
         """
         POST { "email": "user@example.com", "otp": "123456" }
         """
-        serializer = VerifyOTPSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.save()
-        return Response(data, status=status.HTTP_200_OK)
+        new_password = request.data.get("new_password")
+        conform_password = request.data.get("confirm_password")
+        if new_password != conform_password:
+            return Response({"detail": "New password and confirm password do not match."}, status=status.HTTP_400_BAD_REQUEST)
+        otp = request.data.get("otp")
+        user = User.objects.get(email="abishek.reddy.020502@gmail.com")
+        orginal_otp = PasswordResetOTP.objects.filter(user= user).order_by('-created_at').first()
+        if not orginal_otp:
+            return Response({"detail": "go to forgot password"}, status=status.HTTP_400_BAD_REQUEST)
+        if otp != orginal_otp.otp:
+            return Response({"detail": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        new_password_hashed = make_password(new_password)
+        
+        user.password = new_password_hashed
+        user.save()
+        orginal_otp.delete()  # Invalidate OTP after use
+        #serializer = VerifyOTPSerializer(data=request.data)
+        #serializer.is_valid(raise_exception=True)
+        #data = serializer.save()
+        return Response({"message":"password reset"},  status=status.HTTP_200_OK)
     
 
 

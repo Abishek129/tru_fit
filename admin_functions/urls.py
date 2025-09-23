@@ -1,7 +1,7 @@
 from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
-from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView 
+from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView, UserProfileView
 from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
@@ -49,6 +49,8 @@ urlpatterns = [
     path('coach-count/', CoachCountView.as_view(), name='coach-count'),
     path('create-coach/', CoachCreateView.as_view(), name='create-coach'),
     path('test-socket/', test_socket_view, name='test-socket'),
+    path('user/profile/', UserProfileView.as_view(), name='user-profile'),
+
 
     
     #path('revenue-summary/', RevenueSummaryView.as_view(), name='revenue-summary'),
