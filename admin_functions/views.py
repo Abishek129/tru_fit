@@ -1672,6 +1672,7 @@ class NotificationEditView(APIView):
             return Response({"detail": "Notification not found."}, status=status.HTTP_404_NOT_FOUND)
         notification.read = True
         notification.save()
+        return Response({"detail": "Notification marked as read."}, status=status.HTTP_200_OK)
 
     def delete(self, request, notification_id):
         notification = Notification.objects.get(id=notification_id)
