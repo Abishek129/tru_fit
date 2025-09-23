@@ -1578,3 +1578,10 @@ class CoachCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+
+from django.http import JsonResponse
+from .utils import send_test_message  # or wherever you place it
+
+def test_socket_view(request):
+    send_test_message("Ping from test view!")
+    return JsonResponse({"status": "sent"})

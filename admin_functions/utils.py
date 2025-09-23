@@ -95,3 +95,19 @@ def recommend_coaches(user_json: dict, k=4):
         scored.append((dist, c))
     scored.sort(key=lambda x: x[0])
     return [c for _,c in scored[:k]]
+
+
+
+
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+def send_test_message(msg="Hello from Django view!"):
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "test_group",
+        {
+            "type": "test_message",  # must match consumer handler
+            "message": msg,
+        }
+    )

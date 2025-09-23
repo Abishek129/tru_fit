@@ -203,6 +203,17 @@ REST_FRAMEWORK = {
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
+LOGGING = {
+  "version": 1, "disable_existing_loggers": False,
+  "handlers": {"console": {"class": "logging.StreamHandler"}},
+  "loggers": {
+    "channels": {"handlers": ["console"], "level": "INFO"},
+    "channels_redis": {"handlers": ["console"], "level": "INFO"},
+    "ws": {"handlers": ["console"], "level": "INFO"},
+  },
+}
+
+
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
