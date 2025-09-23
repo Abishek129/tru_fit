@@ -649,3 +649,17 @@ class TestImageSerializer(serializers.ModelSerializer):
 
         obj.save()
         return obj
+    
+
+from .models import Notification
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'message', 'created_at', 'read']
+        read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'read': {'default': False},
+        }
+
+

@@ -1,5 +1,5 @@
 from django.shortcuts import render
-
+from .utils import send_test_message
 # Create your views here.
 
 # admin_functions/views.py
@@ -10,6 +10,8 @@ from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSeri
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .permissions import IsAuthenticatedAndStaff
+from .models import Notification
+from .serializers import NotificationSerializer
 
 
 from rest_framework.views import APIView
@@ -830,7 +832,7 @@ from django.utils import timezone
 log = logging.getLogger(__name__)
 
 
-
+from .utils import send_test_message
 @method_decorator(csrf_exempt, name="dispatch")
 class CashfreeWebhookView(View):
     def post(self, request):
@@ -899,10 +901,29 @@ class CashfreeWebhookView(View):
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
                     finance.end_date = timezone.now()
+                    send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
+                    Notification.objects.create(
+                        title="New Consultation Call Booked",
+                        message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
+                        
+                    )
+
                 elif client_obj.plan == 2:
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                    send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
+                    Notification.objects.create(
+                        title="New 12 Week Plan Purchased",
+                        message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
+                        
+                    )
                 elif client_obj.plan == 3:
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                    send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
+                    Notification.objects.create(
+                        title="New 24 Week Plan Purchased",
+                        message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
+                        
+                    )
                 
                 finance.save()
                 client_obj.save()
@@ -1193,8 +1214,12 @@ class VerifyOTPView(APIView):
 
     def post(self, request):
         
+        
         new_password = request.data.get("new_password")
         conform_password = request.data.get("confirm_password")
+        otp = request.data.get("otp")
+        if not new_password  or not conform_password or not otp:
+            return Response({"detail": "new_password, confirm_password and otp are required."}, status=status.HTTP_400_BAD_REQUEST)
         if new_password != conform_password:
             return Response({"detail": "New password and confirm password do not match."}, status=status.HTTP_400_BAD_REQUEST)
         otp = request.data.get("otp")
@@ -1629,3 +1654,28 @@ from .utils import send_test_message  # or wherever you place it
 def test_socket_view(request):
     send_test_message("Ping from test view!")
     return JsonResponse({"status": "sent"})
+
+
+
+class NotificationListView(ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = NotificationSerializer
+    queryset = Notification.objects.all().order_by('-created_at')
+
+
+class NotificationEditView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, notification_id):
+        notification = Notification.objects.get(id=notification_id)
+        if not notification:
+            return Response({"detail": "Notification not found."}, status=status.HTTP_404_NOT_FOUND)
+        notification.read = True
+        notification.save()
+
+    def delete(self, request, notification_id):
+        notification = Notification.objects.get(id=notification_id)
+        if not notification:
+            return Response({"detail": "Notification not found."}, status=status.HTTP_404_NOT_FOUND)
+        notification.delete()
+        return Response({"detail": "Notification deleted."}, status=status.HTTP_204_NO_CONTENT)

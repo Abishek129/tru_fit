@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCertificationViewSet, PlansViewSet, location_view, PriceAndPlans, RecommendCoachAPIView,RBuyNowAPIView, RPaymentInitializationView, RPaymentVerificationView
 from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView, UserProfileView
-from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view
+from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view, NotificationListView, NotificationEditView 
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -42,7 +42,7 @@ urlpatterns = [
     path('signups-international/', NewSignupsIntView.as_view(), name='finance-international'),
     path('finance/', FinanceAmountByLocationView.as_view(), name='finance-by-location'),
     path('coach/summary/', CoachSummaryView.as_view(), name='coach-summary'),
-    path('coachList/', CoachMiniListView.as_view(), name='coach-list'),
+    path('coachList/', CoachMiniListView.as_view(), name='coach-list'), # change name
     path('coach_status/<int:coach_id>/', CoachStatusUpdateView.as_view(), name='coach-status-update'),
     path('leads/', LeadsListView.as_view(), name='leads-list'),
     path('capture-lead/', LeadCaptureView.as_view(), name='lead-capture'),
@@ -50,6 +50,9 @@ urlpatterns = [
     path('create-coach/', CoachCreateView.as_view(), name='create-coach'),
     path('test-socket/', test_socket_view, name='test-socket'),
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
+    path('notifications/', NotificationListView.as_view(), name='notification-list'),
+    path('notifications/<int:pk>/', NotificationEditView.as_view(), name='notification-edit'),
+
 
 
     
