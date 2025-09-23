@@ -1659,7 +1659,9 @@ def test_socket_view(request):
 
 class NotificationListView(ListAPIView):
     permission_classes = [AllowAny]
+    Notification.objects.filter(read=False).update(read=True)
     serializer_class = NotificationSerializer
+
     queryset = Notification.objects.all().order_by('-created_at')
 
 
