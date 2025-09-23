@@ -51,7 +51,7 @@ urlpatterns = [
     path('test-socket/', test_socket_view, name='test-socket'),
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
     path('notifications/', NotificationListView.as_view(), name='notification-list'),
-    path('notifications/<int:pk>/', NotificationEditView.as_view(), name='notification-edit'),
+    path('notifications/<int:notification_id>/', NotificationEditView.as_view(), name='notification-edit'),
 
 
 
