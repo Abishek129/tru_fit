@@ -1192,9 +1192,7 @@ class VerifyOTPView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        """
-        POST { "email": "user@example.com", "otp": "123456" }
-        """
+        
         new_password = request.data.get("new_password")
         conform_password = request.data.get("confirm_password")
         if new_password != conform_password:

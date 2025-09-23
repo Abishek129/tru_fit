@@ -10,18 +10,14 @@ from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
+    #image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "email", "name", "phone_number", "image", "image_url", "date_joined"]
+        fields = ["id", "email", "name", "phone_number",  "date_joined"]
         read_only_fields = ["id", "email", "date_joined"]
 
-    def get_image_url(self, obj):
-        try:
-            return obj.image.url if obj.image else None
-        except Exception:
-            return None
+    
 
 
 class BlogSerializer(serializers.ModelSerializer):
