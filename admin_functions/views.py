@@ -1500,27 +1500,26 @@ from rest_framework import status
 
 from .models import Finance_details
 
+from datetime import datetime, date
+from decimal import Decimal
+from django.db.models import Q, Sum, Value, DecimalField
+from django.db.models.functions import Coalesce
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
 class FinanceAmountByLocationView(APIView):
     """
     POST body (all optional):
       - location: "domestic" | "international" | "all" (default: "domestic")
-      - current_date: "YYYY-MM-DD"  # point-in-time
+      - current_date: "YYYY-MM-DD"  # exact-date mode -> start_date == current_date
       - start_date: "YYYY-MM-DD"    # window start
       - end_date: "YYYY-MM-DD"      # window end
 
-    Inclusion rule:
-      - Point-in-time (D): records with start_date <= D and (end_date IS NULL or end_date >= D)
-      - Window [S, E]:     records with start_date <= E and (end_date IS NULL or end_date >= S)
-
-    Returns:
-      - If location != 'all': { "location": "<loc>", "total_amount_paid": "<Decimal as string>" }
-      - If location == 'all': {
-            "totals": [
-                {"location": "domestic", "total_amount_paid": "<...>"},
-                {"location": "international", "total_amount_paid": "<...>"}
-            ],
-            "grand_total": "<...>"
-        }
+    Window behavior when one end missing:
+      - only start_date -> [start_date, today]
+      - only end_date   -> (-∞, end_date]
+      - neither         -> active today
     """
     permission_classes = [AllowAny]
 
@@ -1534,9 +1533,9 @@ class FinanceAmountByLocationView(APIView):
             def parse_date(s):
                 return datetime.strptime(s, "%Y-%m-%d").date() if s else None
 
-            start_date = parse_date(start_date_str)
-            end_date = parse_date(end_date_str)
-            current_date = parse_date(current_date_str)
+            S = parse_date(start_date_str)
+            E = parse_date(end_date_str)
+            D = parse_date(current_date_str)
 
             base_qs = Finance_details.objects.all()
 
@@ -1549,57 +1548,62 @@ class FinanceAmountByLocationView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Date logic
-            if current_date:
-                # point-in-time overlap
-                overlap = Q(start_date__lte=current_date) & (Q(end_date__isnull=True) | Q(end_date__gte=current_date))
+            # Date filtering
+            if D:
+                # Exact-date mode: ONLY start_date equals current_date
+                base_qs = base_qs.filter(start_date=D)
+                total = base_qs.aggregate(
+                    total_amount_paid=Coalesce(
+                        Sum("amount_paid"),
+                        Value(Decimal("0.00")),
+                        output_field=DecimalField(max_digits=18, decimal_places=2)
+                    )
+                )["total_amount_paid"] or Decimal("0.00")
+                print(base_qs)
+                return Response({"location": location, "total_amount_paid": str(total)}, status=status.HTTP_200_OK) 
+               
             else:
-                # window mode
-                if start_date and not end_date:
-                    end_date = start_date
-                if end_date and not start_date:
-                    start_date = end_date
-                if not start_date and not end_date:
-                    # default to today if nothing provided
-                    today = date.today()
-                    overlap = Q(start_date__lte=today) & (Q(end_date__isnull=True) | Q(end_date__gte=today))
+                today = date.today()
+                if S and E:
+                    overlap = Q(start_date__gte=S, start_date__lte=E)  # or start_date__range=(S, E)
+                elif S and not E:
+                    overlap = Q(start_date__gte=S)
+                elif E and not S:
+                    overlap = Q(start_date__lte=E)   # use __lt=E for strictly before
                 else:
-                    overlap = Q(start_date__lte=end_date) & (Q(end_date__isnull=True) | Q(end_date__gte=start_date))
+                    overlap = Q(start_date__lte=today)
 
             qs = base_qs.filter(overlap)
 
             if location == "all":
-                # Breakdown by location + grand total
                 rows = (
                     qs.values("location")
-                    .annotate(total_amount_paid=Coalesce(Sum("amount_paid"), Value(Decimal("0.00")), output_field=DecimalField(max_digits=18, decimal_places=2)))
+                    .annotate(total_amount_paid=Coalesce(
+                        Sum("amount_paid"),
+                        Value(Decimal("0.00")),
+                        output_field=DecimalField(max_digits=18, decimal_places=2)
+                    ))
                     .order_by("location")
                 )
-                # Convert Decimals to strings for JSON safety & add grand total
+
                 totals = []
                 grand_total = Decimal("0.00")
                 for r in rows:
                     amt = r["total_amount_paid"] or Decimal("0.00")
-                    totals.append({
-                        "location": r["location"],
-                        "total_amount_paid": str(amt),
-                    })
+                    totals.append({"location": r["location"], "total_amount_paid": str(amt)})
                     grand_total += amt
 
-                return Response({
-                    "totals": totals,
-                    "grand_total": str(grand_total),
-                }, status=status.HTTP_200_OK)
+                return Response({"totals": totals, "grand_total": str(grand_total)}, status=status.HTTP_200_OK)
 
-            # Single-location sum
             total = qs.aggregate(
-                total_amount_paid=Coalesce(Sum("amount_paid"), Value(Decimal("0.00")), output_field=DecimalField(max_digits=18, decimal_places=2))
+                total_amount_paid=Coalesce(
+                    Sum("amount_paid"),
+                    Value(Decimal("0.00")),
+                    output_field=DecimalField(max_digits=18, decimal_places=2)
+                )
             )["total_amount_paid"] or Decimal("0.00")
 
-            return Response({
-                "location": location,
-                "total_amount_paid": str(total),
-            }, status=status.HTTP_200_OK)
+            return Response({"location": location, "total_amount_paid": str(total)}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1760,3 +1764,22 @@ class NotificationEditView(APIView):
             return Response({"detail": "Notification not found."}, status=status.HTTP_404_NOT_FOUND)
         notification.delete()
         return Response({"detail": "Notification deleted."}, status=status.HTTP_204_NO_CONTENT)
+    
+
+
+from .models import ClientDetails
+
+class TopClientsByPaymentMode(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        data = {}
+        for mode, _ in ClientDetails.PAYMENT_CHOICES:
+            clients = (
+                ClientDetails.objects.filter(payment_mode=mode)
+                .order_by("-payment_date")[:5]   # top 5, latest by payment_date
+                .values("id", "name", "email", "phone_number", "payment_status", "plan", "payment_date")
+            )
+            data[mode] = list(clients)
+
+        return Response(data)
