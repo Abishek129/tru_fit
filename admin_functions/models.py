@@ -52,7 +52,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=150, blank=True, null=True)
-    #image = models.ImageField(upload_to='admin_dp/', blank=True, null=True)
+    image = models.ImageField(upload_to='admin_dp/', blank=True, null=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='customer')
     

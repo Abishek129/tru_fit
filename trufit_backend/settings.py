@@ -278,3 +278,5 @@ DEFAULT_FROM_EMAIL = "abishek.129.203@gmail.com"
 
 
   # must be the verified email
+STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]

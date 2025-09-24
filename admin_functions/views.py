@@ -252,6 +252,7 @@ class RBuyNowAPIView(APIView):
                     plan=plan
                 )
             #print(client)
+            finance_details = Finance_details.objects.create(client=client, location="international")
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
 
@@ -277,30 +278,35 @@ class RPaymentInitializationView(APIView):
     """
     permission_classes = [AllowAny]
 
-    def post(self, request, client_id, coach_id):
+    def post(self, request, client_id):
         try:
             client = get_object_or_404(ClientDetails, id=client_id)
 
-            coach = get_object_or_404(CoachProfile, id=coach_id)
+            
             # Block repeat payments
             if client.payment_status == "paid":
                 return Response({"error": "Payment already completed for this client."},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             # Pricing lookup (coach level + 'international' plan row)
-            coach_level = coach.coach_level        # 'junior' | 'senior' | 'elite'
+            coach_level = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
             location = "international"
             cat = get_object_or_404(Category, coach_level=coach_level, location=location)
 
             # Amount (3 or 6 months)
             if client.plan == 1:
-                plan = Plan.objects.get(category=cat, duration_weeks="null")
+                plan = Plan.objects.get(category=cat, duration_weeks=None)
                 amount_dec = plan.price
             elif client.plan == 2:
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
+                active_client = Clinet_Coach.objects.get(client=client,coach=client.coach)
+                active_client.duration_weeks=12
+                active_client.save()
                 amount_dec = plan.price
             elif client.plan == 3:
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
+                active_client = Clinet_Coach.objects.get(client=client,coach=client.coach)  
+                active_client.duration_weeks=24
                 amount_dec = plan.price
                 
             else:
@@ -384,7 +390,7 @@ class RPaymentVerificationView(APIView):
             return Response({"error": "Incomplete payment details provided."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Fetch the order
-        client = get_object_or_404(ClientDetails, id=client_id)
+        client_obj = get_object_or_404(ClientDetails, id=client_id)
 
         key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
         key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)        
@@ -400,11 +406,59 @@ class RPaymentVerificationView(APIView):
             )
             # Update the order's payment status
             
-            client.payment_status = "paid"
             
+            client_obj.payment_status = "paid"
+            
+            client_obj.save(update_fields=["payment_status"])
+            client_obj.payment_date = timezone.now()
+            if client_obj.plan != 1:
+                client_obj.active = True
+                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
+                coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
+                
+                    
+                coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(order_amt))
+                coach_revenue_obj.save()
+                active_client.active = True
+                active_client.save()
+                #print(active_client)
+            else:
+                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
+            finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date').first()
+            finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
+            if client_obj.plan == 1:
+                finance.end_date = timezone.now()
+                send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
+                Notification.objects.create(
+            
+                    message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
+                    
+                )
+
+            elif client_obj.plan == 2:
+                finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
+                Notification.objects.create(
+                    
+                    message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
+                    
+                )
+            elif client_obj.plan == 3:
+                finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
+                Notification.objects.create(
+                    
+                    message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
+                    
+                )
+            
+            finance.save()
+            client_obj.save()
             
 
-            client.save()
+            
 
  
 
@@ -549,9 +603,9 @@ class CPaymentInitializationView(APIView):
                     active_client.save()
                 else:
                     active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
-                if not plan:
-                    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
-                plan = Plan.objects.get(category=cat, duration_weeks=24)
+                #if not 
+                #    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
+                #
                 amount_dec = plan.price
                 
             else:
@@ -897,6 +951,7 @@ class CashfreeWebhookView(View):
                     #print(active_client)
                 else:
                     active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                    active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date').first()
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
@@ -934,6 +989,10 @@ class CashfreeWebhookView(View):
         if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
             log.info("Payment not completed: status=%s msg=%s cf_payment_id=%s", p_status, p_msg, cf_payment_id)
             finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
+            active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+            if not active_client.inr_revenue or not active_client.us_revenue:
+                del active_client
+            
             del finance
             return JsonResponse({"ok": True}, status=200)
 
@@ -1379,8 +1438,7 @@ class NewSignupsIntView(APIView):
             if current_date:
                 # Active at current_date
                 active_filter = (
-                    Q(start_date__lte=current_date) &
-                    (Q(end_date__isnull=True) | Q(end_date__gte=current_date))
+                    Q(start_date__lte=current_date)
                 )
                 total_active_users = qs.filter(active_filter).count()
 
