@@ -1438,7 +1438,7 @@ class NewSignupsIntView(APIView):
             if current_date:
                 # Active at current_date
                 active_filter = (
-                    Q(start_date__lte=current_date)
+                    Q(start_date__lte=current_date) 
                 )
                 total_active_users = qs.filter(active_filter).count()
 
