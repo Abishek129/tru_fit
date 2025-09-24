@@ -111,13 +111,18 @@ class CoachProfileSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         incoming_certs = validated_data.pop('certifications', None)
-        coach = super().create(validated_data)  # use DRF’s default for normal fields (including image)
+
+        # ADD THIS: fall back to raw input if DRF dropped the field
+        if incoming_certs is None and hasattr(self, 'initial_data') and 'certifications' in self.initial_data:
+            incoming_certs = self.initial_data.get('certifications')
+
+        coach = super().create(validated_data)
 
         certs_data = self._normalize_certs(incoming_certs)
         if certs_data:
-            CoachCertification.objects.bulk_create([
-                CoachCertification(coach=coach, **cd) for cd in certs_data
-            ])
+            CoachCertification.objects.bulk_create(
+                [CoachCertification(coach=coach, **cd) for cd in certs_data]
+            )
         return coach
 
     @transaction.atomic
