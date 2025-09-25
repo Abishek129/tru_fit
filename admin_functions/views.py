@@ -234,10 +234,13 @@ class RBuyNowAPIView(APIView):
             phone_number = request.data.get('phone_number')
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
+            coach_id = request.data.get('coach')
+            coach = get_object_or_404(CoachProfile, pk=coach_id)
             if ClientDetails.objects.filter(email=email).exists():
                 client = ClientDetails.objects.get(email=email)
                 client.payment_mode="razorpay"
                 client.plan=plan
+                client.coach = coach
                 client.residence=residence
                 client.payment_status="pending"
                 client.save()
@@ -282,38 +285,52 @@ class RPaymentInitializationView(APIView):
         try:
             client = get_object_or_404(ClientDetails, id=client_id)
 
-            
+            print("working 1")
             # Block repeat payments
             if client.payment_status == "paid":
                 return Response({"error": "Payment already completed for this client."},
                                 status=status.HTTP_400_BAD_REQUEST)
-
+            print("working 2")
             # Pricing lookup (coach level + 'international' plan row)
-            coach_level = client.coach.coach_level        # 'junior' | 'senior' | 'elite'
+            print(client)
+            coach_level = client.coach.coach_level   
+            print(coach_level)     # 'junior' | 'senior' | 'elite'
             location = "international"
             cat = get_object_or_404(Category, coach_level=coach_level, location=location)
-
+            print("working 3")
             # Amount (3 or 6 months)
             if client.plan == 1:
                 plan = Plan.objects.get(category=cat, duration_weeks=None)
                 amount_dec = plan.price
             elif client.plan == 2:
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
-                active_client = Clinet_Coach.objects.get(client=client,coach=client.coach)
-                active_client.duration_weeks=12
-                active_client.save()
+                if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+                    active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+                    active_client.duration_weeks = 12
+                    active_client.save()
+                else:
+                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
+                if not plan:
+                    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
+                plan = Plan.objects.get(category=cat, duration_weeks=12)
                 amount_dec = plan.price
             elif client.plan == 3:
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
-                active_client = Clinet_Coach.objects.get(client=client,coach=client.coach)  
-                active_client.duration_weeks=24
+                if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+                    active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+                    active_client.duration_weeks = 12
+                    active_client.save()
+                else:
+                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
+                #if not 
+                #    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
+                #
                 amount_dec = plan.price
                 
             else:
                 return Response({"error": "Invalid plan.", "client_plan":client.plan}, status=status.HTTP_400_BAD_REQUEST)
-            
            
-
+            print("working 4")
             # Razorpay client from env settings
             key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
             key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
@@ -321,9 +338,10 @@ class RPaymentInitializationView(APIView):
                 return Response({"error": "Razorpay keys are not configured on the server."},
                                 status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             rz_client = razorpay.Client(auth=(key_id, key_secret))
-
+            print("working 5")
             # USD: 2 decimal places → cents
             amount_minor = int((amount_dec * Decimal("100")).quantize(Decimal("1")))
+            print(amount_minor)
 
             rz_order = rz_client.order.create({
                 "amount": amount_minor,
@@ -411,9 +429,28 @@ class RPaymentVerificationView(APIView):
             
             client_obj.save(update_fields=["payment_status"])
             client_obj.payment_date = timezone.now()
+            cat = Category.objects.get(coach_level=client_obj.coach.coach_level, location="international")
+            if client_obj.plan == 2:
+                    plan = Plan.objects.get(category=cat, duration_weeks=12)
+                    order_amt = plan.price
+            elif client_obj.plan == 3:
+                plan = Plan.objects.get(category=cat, duration_weeks=24)
+                order_amt = plan.price
+            else:
+                plan = Plan.objects.get(category=cat, duration_weeks=None)
+                order_amt = plan.price
+            
             if client_obj.plan != 1:
                 client_obj.active = True
                 active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                
+                if client_obj.plan == 2:
+                    plan = Plan.objects.get(category=cat, duration_weeks=12)
+                    order_amt = plan.price
+                else:
+                    plan = Plan.objects.get(category=cat, duration_weeks=24)
+                    order_amt = plan.price
+                
                 active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
                 coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                 
@@ -1105,7 +1142,7 @@ class TestEmailView(APIView):
                 recipient_list=["abishek.129.203@gmail.com"],
                 fail_silently=False,
             )
-            return Response({"message": "Test email sent successfully."}, status=status.HTTP_200_OK      )
+            return Response({"message": "Test email sent successfully."}, status=status.HTTP_200_OK )
         except Exception as e:
             #print("SMTP USER:", os.environ.get("SES_SMTP_USER"))
             print("SMTP PASS:", os.environ.get("AWS_SES_ACCESS_KEY_ID"))    
