@@ -1756,22 +1756,15 @@ class NotificationEditView(APIView):
 
 
 from .models import ClientDetails
+from .serializers import TopClientsSerializer
 
 class TopClientsByPaymentMode(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        data = {}
-        for mode, _ in ClientDetails.PAYMENT_CHOICES:
-            clients = (
-                ClientDetails.objects.filter(payment_mode=mode)
-                .order_by("-payment_date")[:5]   # top 5, latest by payment_date
-                .values("id", "name", "email", "phone_number", "payment_status", "plan", "payment_date", "coach", "residence")
-            )
-            data[mode] = list(clients)
-
-        return Response(data)
-    
+        recent_clients = ClientDetails.objects.order_by('-created_date')[:5]
+        serializer = TopClientsSerializer(recent_clients, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class EnquiryFormView(APIView):
     permission_classes = [AllowAny]

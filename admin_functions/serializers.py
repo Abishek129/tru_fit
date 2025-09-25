@@ -672,3 +672,20 @@ class NotificationSerializer(serializers.ModelSerializer):
         }
 
 
+class TopClientsSerializer(serializers.ModelSerializer):
+    coach_name  = serializers.CharField(source="coach.name", read_only=True)
+
+    class Meta:
+        model = ClientDetails
+        fields = [
+            "id",
+            "name",
+            "email",
+            "phone_number",
+            "created_date",
+            "plan",
+            "payment_date",
+            "coach",
+            "coach_name",
+            "residence"
+        ]
