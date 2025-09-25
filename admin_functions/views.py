@@ -944,7 +944,7 @@ class CashfreeWebhookView(View):
                     coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                     
                         
-                    coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
+                    #coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     coach_revenue_obj.save()
                     active_client.active = True
                     active_client.save()
