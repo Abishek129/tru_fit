@@ -1762,9 +1762,16 @@ class TopClientsByPaymentMode(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        recent_clients = ClientDetails.objects.order_by('-created_date')[:5]
-        serializer = TopClientsSerializer(recent_clients, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        recent_clients_ind = ClientDetails.objects.filter(payment_mode="cashfree").order_by('-created_date')[:5]
+        recent_clients_us = ClientDetails.objects.filter(payment_mode="razorpay").order_by('-created_date')[:5]
+        serializer_ind = TopClientsSerializer(recent_clients_ind, many=True)
+        serializer_us = TopClientsSerializer(recent_clients_us, many=True)
+        return Response({
+            "indian_clients": serializer_ind.data,
+            "us_clients": serializer_us.data
+        }, status=status.HTTP_200_OK)
+    
+
 
 class EnquiryFormView(APIView):
     permission_classes = [AllowAny]
