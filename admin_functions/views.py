@@ -1631,13 +1631,13 @@ class CoachSummaryView(ListAPIView):
             CoachProfile.objects
             .annotate(
                 total_clients=Count('coach_clients_rel', distinct=True),
-                active_clients=Count(
+                active_clients_count=Count(
                     'coach_clients_rel',
                     filter=Q(coach_clients_rel__active=True),
                     distinct=True
                 ),
             )
-            .select_related("revenue")  # pulls CoachRevenue in one query
+            .select_related("revenues")  # pulls CoachRevenue in one query
         )
 
 from .models import Leads

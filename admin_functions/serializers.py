@@ -295,19 +295,19 @@ class CoachRevenueSerializer(serializers.ModelSerializer):
 
 class CoachSummarySerializer(serializers.ModelSerializer):
     total_clients  = serializers.IntegerField(read_only=True)
-    active_clients = serializers.IntegerField(read_only=True)
+    active_clients_count = serializers.IntegerField(read_only=True)
     inr_revenue    = serializers.DecimalField(
-        max_digits=30, decimal_places=2, read_only=True, source="revenue.inr_revenue"
+        max_digits=30, decimal_places=2, read_only=True, source="revenues.inr_revenue"
     )
     us_revenue     = serializers.DecimalField(
-        max_digits=30, decimal_places=2, read_only=True, source="revenue.us_revenue"
+        max_digits=30, decimal_places=2, read_only=True, source="revenues.us_revenue"
     )
 
     class Meta:
         model = CoachProfile
         fields = (
             "id", "name", "coach_level", "status",
-            "total_clients", "active_clients",
+            "total_clients", "active_clients_count",
             "inr_revenue", "us_revenue",
         )
             
