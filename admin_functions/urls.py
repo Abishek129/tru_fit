@@ -18,7 +18,7 @@ urlpatterns = [
     path('recommend/', RecommendCoachAPIView.as_view(), name = "recommend"),
     path('create/category/', CategoryViewSet.as_view({'post': 'create', 'get':'list'}), name='create-category'),
     path('int-buy-now/', RBuyNowAPIView.as_view(), name = "buy-now-int"),
-    path('int-payment-init/<int:client_id>/<int:coach_id>/', RPaymentInitializationView.as_view(), name = 'payment-init-int'),
+    path('int-payment-init/<int:client_id>/', RPaymentInitializationView.as_view(), name = 'payment-init-int'),
     path('int-payment-verify/', RPaymentVerificationView.as_view(), name = "payment-verify-int" ),
     path('ind-buy-now/', CBuyNowAPIView.as_view(), name = "ind-buy-now" ),
     path('ind-payment-init/<int:client_id>/', CPaymentInitializationView.as_view(), name = 'payment-init-ind'),
@@ -56,11 +56,7 @@ urlpatterns = [
     path('recent-clients/', TopClientsByPaymentMode.as_view(), name='top-clients'),
     path('enquiry/', EnquiryFormView.as_view(), name='enquiry-form'),
 
-
-
-    
-    #path('revenue-summary/', RevenueSummaryView.as_view(), name='revenue-summary'),
-
-    
+  
 
 ] 
+
