@@ -303,7 +303,7 @@ class Plan(models.Model):
     
 
 class CoachRevenue(models.Model):
-    coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='revenues')
+    coach = models.OneToOneField(CoachProfile, on_delete=models.CASCADE, related_name='revenues')
     #month = models.DateField()  # Store the first day of the month
     us_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     inr_revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -311,7 +311,7 @@ class CoachRevenue(models.Model):
 
 
     def __str__(self):
-        return f"{self.coach.name} - {self.month.strftime('%Y-%m')}"
+        return f"{self.coach.name}"
 
 
     
