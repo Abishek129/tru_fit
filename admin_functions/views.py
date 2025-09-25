@@ -1766,8 +1766,27 @@ class TopClientsByPaymentMode(APIView):
             clients = (
                 ClientDetails.objects.filter(payment_mode=mode)
                 .order_by("-payment_date")[:5]   # top 5, latest by payment_date
-                .values("id", "name", "email", "phone_number", "payment_status", "plan", "payment_date")
+                .values("id", "name", "email", "phone_number", "payment_status", "plan", "payment_date", "coach", "residence")
             )
             data[mode] = list(clients)
 
         return Response(data)
+    
+
+class EnquiryFormView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        name = request.data.get("name")
+        email = request.data.get("email")
+        phone_number = request.data.get("phone_number")
+        goal = request.data.get("goal")
+
+        send_mail(
+            message=f"New enquiry from {name}\nEmail: {email}\nPhone: {phone_number}\nGoal: {goal}",
+            subject="New Enquiry Form Submission",
+            recipient_list=["abishek.reddy.020502@gmail.com"],
+            from_email="abishek.reddy.020502@gmail.com",
+        
+        )
+        return Response({"detail": "Enquiry submitted."}, status=status.HTTP_201_CREATED)
