@@ -208,8 +208,8 @@ class ClientDetails(models.Model):
         related_name='coach_clients'
     )
     residence = models.CharField(max_length=100, blank=True, null=True)
-    created_date = models.DateTimeField(default=timezone.now) 
-    payment_date = models.DateField(default=timezone.now) # or auto_now_add=True
+    created_date = models.DateTimeField(default=timezone.localdate) 
+    payment_date = models.DateField(default=timezone.localdate) # or auto_now_add=True
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
     plan = models.PositiveSmallIntegerField()
     payment_status = models.CharField(max_length=100, choices=PAYMENT_STATUS_CHOICES, default="pending")
@@ -240,7 +240,7 @@ class Clinet_Coach(models.Model):
         if self.duration_weeks and self.start_date:
             self.end_date = self.start_date + timedelta(weeks=self.duration_weeks)
         super().save(*args, **kwargs)
-        
+
     def __str__(self):
         return f"{self.client.name} - {self.coach.name}"
 
