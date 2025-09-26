@@ -219,9 +219,15 @@ class ClientDetails(models.Model):
         return self.name
 
 class Clinet_Coach(models.Model):
+    LOCATION_CHOICES = [
+        ('domestic',      'DOMESTIC'),
+        ('international', 'INTERNATIONAL'),
+    ]
     client = models.ForeignKey(ClientDetails, on_delete=models.CASCADE, related_name='client_coach_rel')
     coach = models.ForeignKey(CoachProfile, on_delete=models.CASCADE, related_name='coach_clients_rel')
     start_date = models.DateField(default=timezone.now)
+    location = models.CharField(max_length=20, choices=LOCATION_CHOICES, default='domestic')
+    end_date = models.DateField(blank=True, null=True)
     duration_weeks = models.PositiveIntegerField(blank=True, null=True)
     active = models.BooleanField(default=False)
     us_revenue = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
@@ -230,6 +236,11 @@ class Clinet_Coach(models.Model):
     class Meta:
         unique_together = ('client', 'coach')
 
+    def save(self, *args, **kwargs):
+        if self.duration_weeks and self.start_date:
+            self.end_date = self.start_date + timedelta(weeks=self.duration_weeks)
+        super().save(*args, **kwargs)
+        
     def __str__(self):
         return f"{self.client.name} - {self.coach.name}"
 

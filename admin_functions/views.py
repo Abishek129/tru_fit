@@ -458,11 +458,14 @@ class RPaymentVerificationView(APIView):
                 coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(order_amt))
                 coach_revenue_obj.save()
                 active_client.active = True
+                active_client.location = "international"
                 active_client.save()
                 #print(active_client)
             else:
                 active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
                 active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
+                active_client.location = "international"
+                active_client.save()
             finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date').first()
             finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
             if client_obj.plan == 1:
@@ -984,11 +987,14 @@ class CashfreeWebhookView(View):
                     coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     coach_revenue_obj.save()
                     active_client.active = True
+                    active_client.location = "domestic"
                     active_client.save()
                     #print(active_client)
                 else:
                     active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
                     active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
+                    active_client.location = "domestic"
+                    active_client.save()
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date').first()
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
@@ -1827,3 +1833,94 @@ class EnquiryFormView(APIView):
         
         )
         return Response({"detail": "Enquiry submitted."}, status=status.HTTP_201_CREATED)
+    
+
+
+from datetime import date, datetime
+from django.db.models import Q
+from django.utils import timezone
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import ClientDetails, Clinet_Coach
+
+class ClientCoachStatsView(APIView):
+    """
+    POST /metrics/client-stats/
+    Body JSON:
+    {
+        "location": "domestic" | "international",
+        "current_date": "YYYY-MM-DD",
+        "start_date": "YYYY-MM-DD",
+        "end_date": "YYYY-MM-DD"
+    }
+    """
+
+    def _parse_date(self, s):
+        if not s:
+            return None
+        if isinstance(s, (date, datetime)):
+            return s.date() if isinstance(s, datetime) else s
+        try:
+            return datetime.strptime(s, "%Y-%m-%d").date()
+        except Exception:
+            return None
+
+    def post(self, request):
+        # 1. Get body params
+        location = request.data.get("location") or "domestic"
+        current_date = self._parse_date(request.data.get("current_date"))
+        start_date = self._parse_date(request.data.get("start_date"))
+        end_date = self._parse_date(request.data.get("end_date"))
+
+        # 2. Map location -> payment_mode
+        payment_mode = "cashfree" if location == "domestic" else "razorpay"
+
+        # 3. Single day case
+        if current_date:
+            new_signups = ClientDetails.objects.filter(
+                payment_mode=payment_mode,
+                payment_status="paid",
+                payment_date=current_date,
+            ).count()
+
+            active_clients = Clinet_Coach.objects.filter(
+                active=True, location=location
+            ).count()
+
+            return Response(
+                {"new_signups": new_signups, "active_clients": active_clients},
+                status=status.HTTP_200_OK,
+            )
+
+        # 4. Range case defaults
+        if not start_date:
+            start_date = date(2000, 1, 1)
+        if not end_date:
+            end_date = timezone.now().date()
+
+        if start_date > end_date:
+            return Response(
+                {"detail": "start_date cannot be after end_date"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 5. Range queries
+        new_signups = ClientDetails.objects.filter(
+            payment_mode=payment_mode,
+            created_date__date__gte=start_date,
+            created_date__date__lte=end_date,
+        ).count()
+
+        active_clients = Clinet_Coach.objects.filter(
+            location=location
+        ).filter(
+            Q(start_date__gte=start_date, end_date__lte=end_date)
+            | Q(start_date__gte=start_date, start_date__lte=end_date, end_date__isnull=True)
+        ).count()
+
+        return Response(
+            {"new_signups": new_signups, "active_clients": active_clients},
+            status=status.HTTP_200_OK,
+        )
