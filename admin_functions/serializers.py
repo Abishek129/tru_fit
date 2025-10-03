@@ -92,7 +92,8 @@ class CoachProfileSerializer(serializers.ModelSerializer):
         model = CoachProfile
         fields = [
             'id', 'name', 'image', 'gender', 'experience', 'coach_level','status',
-            'tags','location', 'previous_work', 'approach','specializations',
+            'tags','location', 'previous_work', 'approach','specializations','linkedin_link',
+            'insta_link',
             'bio', 'calendly_link', 'certifications', 'summary'
         ]
 

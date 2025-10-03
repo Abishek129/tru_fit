@@ -153,7 +153,8 @@ class CoachProfile(models.Model):
     bio = models.TextField(blank=True, null=True)
     calendly_link = models.URLField(max_length=500, blank=True, null=True)
     location = models.CharField(max_length=50, blank=True, null=True)
-    
+    insta_link = models.TextField(max_length=1000, blank = True, null = True)
+    linkedin_link = models.TextField(max_length=1000, blank = True, null = True)
     approach = models.TextField(blank=True, null=True)
     previous_work = models.TextField(blank=True, null=True)
     summary = models.TextField(blank=True, null = True)
