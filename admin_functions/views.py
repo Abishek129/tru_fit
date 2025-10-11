@@ -555,7 +555,7 @@ class CBuyNowAPIView(APIView):
                     plan=plan
                 )
 
-                        
+            print(client.phone_number, "testing before")         
             finace_details = Finance_details.objects.create(client=client, location="domestic")
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
