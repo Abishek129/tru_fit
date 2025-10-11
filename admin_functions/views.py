@@ -656,7 +656,7 @@ class CPaymentInitializationView(APIView):
             #print(plan, amount_dec)
             order_currency = "INR"  # or "INR"
             order_amount = float(Decimal(amount_dec))  # Cashfree expects a float number
-
+            print(client.phone_number)
             # Make a unique order_id for Cashfree (must be unique per order)
             order_id = f"client_{client.id}_{int(time.time())}"
 
