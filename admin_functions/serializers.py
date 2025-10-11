@@ -94,7 +94,7 @@ class CoachProfileSerializer(serializers.ModelSerializer):
             'id', 'name', 'image', 'gender', 'experience', 'coach_level','status',
             'tags','location', 'previous_work', 'approach','specializations','linkedin_link',
             'insta_link',
-            'bio', 'calendly_link', 'certifications', 'summary'
+            'bio', 'calendly_link', 'certifications', 'summary', 'spurfit_url'
         ]
 
     def _normalize_certs(self, certs):
