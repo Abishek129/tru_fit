@@ -143,6 +143,7 @@ class CoachProfile(models.Model):
     image = models.ImageField(upload_to='CoachProfile/', blank=True, null=True)
     gender = models.CharField(max_length=15, choices=GENDER_CHOICES, blank= True, null= True)
     experience = models.DecimalField(max_digits=5, decimal_places=2)
+    experience_details = models.TextField(blank=True, null=True)
     coach_level = models.CharField(max_length=13, choices=COACH_LEVEL_CHOICES)
     status = models.CharField(max_length=10, choices=status_choices, default='active')
     intensity_level = models.IntegerField(choices=INTENSITY_CHOICES, default=3)  # Added
@@ -161,8 +162,14 @@ class CoachProfile(models.Model):
     spurfit_url = models.TextField(max_length=1000, blank = True, null = True)
 
 
+    
     def __str__(self):
         return self.name
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.experience_details:
+            self.experience_details = f"{self.experience}+ years"
+            super().save(update_fields=['experience_details'])
 
 class CoachCertification(models.Model):  # better to keep singular
     coach = models.ForeignKey(
