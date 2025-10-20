@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: trufit-web
+    env_file: .env
+    ports:
+      - "8000:8000" # <-- publish to host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/"] # runs inside the container
+      interval: 20s
+      timeout: 3s
+      retries: 5
+
+  nginx:
+    image: nginx:stable
+    container_name: trufit-nginx
+    depends_on: [web]
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
