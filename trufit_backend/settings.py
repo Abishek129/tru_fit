@@ -30,8 +30,8 @@ SECRET_KEY = 'django-insecure-ox_%gpzf=jy^3jp-6atrs_ncek47inxcc&+a-2+j%sx(f!szxk
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com", ".vercel.app", "localhost:5173"]
-
+#ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com", ".vercel.app", "localhost:5173"]
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost",
