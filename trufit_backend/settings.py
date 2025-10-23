@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 from dotenv import load_dotenv
@@ -122,13 +122,31 @@ import dj_database_url
 
 
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600,
-        ssl_require=True
-    )
-}
+ENV = os.getenv("DJANGO_ENV", "dev")
+
+if ENV == "prod":
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv("AWS_DB_NAME"),
+            'USER': os.getenv("AWS_DB_USER"),
+            'PASSWORD': os.getenv("AWS_DB_PASSWORD"),
+            'HOST': os.getenv("AWS_DB_HOST"),
+            'PORT': os.getenv("AWS_DB_PORT", "5432"),
+            'CONN_MAX_AGE': 600,
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+        }
+    }
+else:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get("DATABASE_URL"),
+            conn_max_age=600,
+            ssl_require=False
+        )
+    }
 
 
 
