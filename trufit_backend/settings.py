@@ -148,7 +148,7 @@ else:
         )
     }
 
-
+#print("Database Configured:", DATABASES['default'])
 
 from datetime import timedelta
 SIMPLE_JWT = {

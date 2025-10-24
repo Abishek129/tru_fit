@@ -142,7 +142,7 @@ class CoachProfile(models.Model):
     name = models.CharField(max_length=300)
     image = models.ImageField(upload_to='CoachProfile/', blank=True, null=True)
     gender = models.CharField(max_length=15, choices=GENDER_CHOICES, blank= True, null= True)
-    experience = models.DecimalField(max_digits=5, decimal_places=2)
+    experience = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     experience_details = models.TextField(blank=True, null=True)
     coach_level = models.CharField(max_length=13, choices=COACH_LEVEL_CHOICES)
     status = models.CharField(max_length=10, choices=status_choices, default='active')
