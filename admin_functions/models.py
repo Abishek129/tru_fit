@@ -218,7 +218,7 @@ class ClientDetails(models.Model):
         related_name='coach_clients'
     )
     residence = models.CharField(max_length=100, blank=True, null=True)
-    created_date = models.DateTimeField(default=timezone.localdate) 
+    created_date = models.DateTimeField(default=timezone.now)
     payment_date = models.DateField(default=timezone.localdate) # or auto_now_add=True
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
     plan = models.PositiveSmallIntegerField()

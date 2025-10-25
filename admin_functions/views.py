@@ -531,7 +531,7 @@ class CBuyNowAPIView(APIView):
             coach_id = request.data.get('coach')
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
-
+            print(coach_id, "coach id")
             coach = get_object_or_404(CoachProfile, pk=coach_id)
 
             if ClientDetails.objects.filter(email=email).exists():
