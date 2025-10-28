@@ -158,8 +158,8 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
-DATABASES["default"]["CONN_MAX_AGE"] = 60
-DATABASES["default"]["CONN_HEALTH_CHECKS"] = True  # Django 4+
+#DATABASES["default"]["CONN_MAX_AGE"] = 60
+#DATABASES["default"]["CONN_HEALTH_CHECKS"] = True  # Django 4+
 
 REDIS_URL = os.getenv("REDIS_URL")  # e.g. redis://:pass@host:6379/0
 
