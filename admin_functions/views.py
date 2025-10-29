@@ -1924,3 +1924,40 @@ class ClientCoachStatsView(APIView):
             {"new_signups": new_signups, "active_clients": active_clients},
             status=status.HTTP_200_OK,
         )
+    
+
+
+# =============== Client's Apis ============== 
+from rest_framework.decorators import api_view, permission_classes
+
+from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def coach_profile_list(request):
+    """
+    GET /api/coaches/
+    Returns all coach profiles
+    """
+    qs = CoachProfile.objects.all().prefetch_related("certifications")
+    serializer = CoachProfileSerializer(qs, many=True, context={"request": request})
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def coach_profile_detail(request, pk: int):
+    """
+    GET /api/coaches/<pk>/
+    """
+    try:
+        coach = (
+            CoachProfile.objects.prefetch_related("certifications")
+            .get(pk=pk)
+        )
+    except CoachProfile.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = CoachProfileSerializer(coach, context={"request": request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
