@@ -180,8 +180,21 @@ CACHES = {
     }
 }
 
+import os
+from urllib.parse import urlparse
 
-CELERY_TASK_ALWAYS_EAGER = True
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+# Derive variants for Celery (use different DBs to avoid key collisions)
+parsed = urlparse(REDIS_URL)
+base = f"{parsed.scheme}://{parsed.netloc}"
+CELERY_BROKER_URL     = os.getenv("CELERY_BROKER_URL",     f"{base}/1")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", f"{base}/2")
+
+# Nice-to-have reliability knobs
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
+CELERY_TIMEZONE = "Asia/Kolkata"
 #CELERY_IMPORTS = ('authentication.tasks',)
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

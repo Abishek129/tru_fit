@@ -90,4 +90,5 @@ urllib3==2.3.0
 virtualenv==20.31.1
 wheel==0.45.1
 zipp==3.21.0
-zope.interface==7.2
+zope.interface==7.
+celery==5.4.0

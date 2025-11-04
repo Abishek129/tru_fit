@@ -1940,7 +1940,7 @@ def coach_profile_list(request):
     GET /api/coaches/
     Returns all coach profiles
     """
-    qs = CoachProfile.objects.all().prefetch_related("certifications")
+    qs = CoachProfile.objects.filter(status='active').prefetch_related('certifications')
     serializer = CoachProfileSerializer(qs, many=True, context={"request": request})
     return Response(serializer.data)
 
@@ -1960,4 +1960,26 @@ def coach_profile_detail(request, pk: int):
         return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     serializer = CoachProfileSerializer(coach, context={"request": request})
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+from django.http import JsonResponse, Http404
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def testimonial_list(request):
+    testimonials = Testimonial.objects.all().order_by('-created_at')
+    serializer = TestimonialSerializer(testimonials, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+# Get a single testimonial by ID
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def testimonial_detail(request, pk):
+    try:
+        testimonial = Testimonial.objects.get(pk=pk)
+    except Testimonial.DoesNotExist:
+        raise Http404("Testimonial not found")
+
+    serializer = TestimonialSerializer(testimonial, context={'request': request})
     return Response(serializer.data, status=status.HTTP_200_OK)
