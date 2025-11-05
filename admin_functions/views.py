@@ -590,7 +590,7 @@ def cf_headers():
     return {
         "x-client-id": app_id,
         "x-client-secret": secret_key,
-        "x-api-version": "2022-09-01",
+        "x-api-version": "2023-08-01",
         "Content-Type": "application/json",
     }
 
