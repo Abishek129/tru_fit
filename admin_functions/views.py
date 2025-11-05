@@ -583,6 +583,7 @@ def cf_base_url():
 def cf_headers():
     app_id = getattr(settings, "CASHFREE_APP_ID", None)
     secret_key = getattr(settings, "CASHFREE_SECRET_KEY", None)
+    print(app_id, secret_key, "cashfree keys")
 
     if not app_id or not secret_key:
         raise ValueError("Cashfree keys are not configured on the server.")
@@ -659,7 +660,7 @@ class CPaymentInitializationView(APIView):
             print(client.phone_number)
             # Make a unique order_id for Cashfree (must be unique per order)
             order_id = f"client_{client.id}_{int(time.time())}"
-
+            print(order_id, "order id")
             payload = {
                 "order_id": order_id,
                 "order_amount": order_amount,
@@ -673,10 +674,11 @@ class CPaymentInitializationView(APIView):
                 
                 "order_note": f"Plan {client.plan} months | Coach: {coach_level} | Loc: {location}",
             }
-
+            print(payload, "payload")   
             url = f"{cf_base_url()}/orders"
             headers = cf_headers()
             resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            print(resp.status_code, resp.text, "response")
             if resp.status_code not in (200, 201):
                 return Response(
                     {"error": "Cashfree order creation failed", "status": resp.status_code, "response": resp.text},
