@@ -694,6 +694,7 @@ class CPaymentInitializationView(APIView):
             # client.save(update_fields=["cashfree_order_id"])
 
             app_id = getattr(settings, "CASHFREE_APP_ID", "")
+            print(app_id, "app id")
             return Response({
                 "cashfree_order_id": order_id,
                 "payment_session_id": payment_session_id,
