@@ -1943,7 +1943,7 @@ def coach_profile_list(request):
     GET /api/coaches/
     Returns all coach profiles
     """
-    qs = CoachProfile.objects.filter(status='active').prefetch_related('certifications')
+    qs = CoachProfile.objects.exclude(status='hard').prefetch_related('certifications')
     serializer = CoachProfileSerializer(qs, many=True, context={"request": request})
     return Response(serializer.data)
 
