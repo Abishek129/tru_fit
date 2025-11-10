@@ -170,17 +170,75 @@ CHANNEL_LAYERS = {
         "CONFIG": {"hosts": [os.getenv("REDIS_URL")]},
     }
 }
+import os
+from urllib.parse import urlparse
+
+
+def with_db(url: str, db: int) -> str:
+    """
+    Take redis://.../<db> and return the same with a different db.
+    If someone passed a URL without a trailing '/db', we still add it.
+    """
+    parsed = urlparse(url)
+    # Ensure path like '/0' exists, then replace with the new db
+    path = f"/{db}"
+    return f"{parsed.scheme}://{parsed.netloc}{path}"
+
+CACHE_REDIS_URL   = with_db(REDIS_URL, 1)       # /1
+CELERY_BROKER_URL = with_db(REDIS_URL, 2)       # /2
+CELERY_RESULT_URL = with_db(REDIS_URL, 3) 
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get("REDIS_CACHE_URL"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # Optional: safer serialization & socket timeouts
+            "SERIALIZER": "django_redis.serializers.json.JSONSerializer",
+            "CONNECTION_POOL_KWARGS": {"max_connections": 50},
+            "PARSER_CLASS": "redis.connection.HiredisParser",
+            "SOCKET_CONNECT_TIMEOUT": 2,  # seconds
+            "SOCKET_TIMEOUT": 2,
+        },
+        "KEY_PREFIX": "trufit",
+        "TIMEOUT": 60 * 15,  # 15 minutes default cache TTL
+    }
+}
+
 
 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL,
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "LOCATION": CACHE_REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # Safer pool + timeouts (optional but recommended)
+            "CONNECTION_POOL_KWARGS": {"max_connections": 50},
+            "SERIALIZER": "django_redis.serializers.json.JSONSerializer",
+            "PARSER_CLASS": "redis.connection.HiredisParser",
+            "SOCKET_CONNECT_TIMEOUT": 2,
+            "SOCKET_TIMEOUT": 2,
+        },
+        "KEY_PREFIX": "trufit",
+        "TIMEOUT": 60 * 15,  # 15 minutes default TTL
     }
 }
 
-CELERY_TASK_ALWAYS_EAGER = True
+# --------------------------
+# Celery
+# --------------------------
+CELERY_BROKER_URL = CELERY_BROKER_URL
+CELERY_RESULT_BACKEND = CELERY_RESULT_URL
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Asia/Kolkata"
+
+# IMPORTANT: disable eager for real workers/beat
+CELERY_TASK_ALWAYS_EAGER = False
+
 
 #CELERY_IMPORTS = ('authentication.tasks',)
 # Password validation
