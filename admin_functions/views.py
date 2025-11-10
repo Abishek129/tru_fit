@@ -998,7 +998,8 @@ class CashfreeWebhookView(View):
                     active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     active_client.location = "domestic"
                     active_client.save()
-                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date').first()
+                    # ======================== delete client_coach if revenue is zero
+                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
                     finance.end_date = timezone.now()
@@ -1034,7 +1035,7 @@ class CashfreeWebhookView(View):
 
         if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
             log.info("Payment not completed: status=%s msg=%s cf_payment_id=%s", p_status, p_msg, cf_payment_id)
-            finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-date').first()
+            finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()
             active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
             if not active_client.inr_revenue or not active_client.us_revenue:
                 del active_client
@@ -1915,13 +1916,18 @@ class ClientCoachStatsView(APIView):
             created_date__date__gte=start_date,
             created_date__date__lte=end_date,
         ).count()
-
+        print(start_date, end_date, new_signups)
         active_clients = Clinet_Coach.objects.filter(
             location=location
         ).filter(
-            Q(start_date__gte=start_date, end_date__lte=end_date)
-            | Q(start_date__gte=start_date, start_date__lte=end_date, end_date__isnull=True)
+            Q(start_date__lte=end_date) &
+            (
+                Q(end_date__gte=start_date) |
+                Q(end_date__isnull=True)
+            )
         ).count()
+
+        print(active_clients)
 
         return Response(
             {"new_signups": new_signups, "active_clients": active_clients},

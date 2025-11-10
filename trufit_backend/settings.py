@@ -161,16 +161,16 @@ SIMPLE_JWT = {
 #DATABASES["default"]["CONN_MAX_AGE"] = 60
 #DATABASES["default"]["CONN_HEALTH_CHECKS"] = True  # Django 4+
 
-REDIS_URL = os.getenv("REDIS_URL")  # e.g. redis://:pass@host:6379/0
+REDIS_URL = os.getenv("REDIS_URL") 
+#print(REDIS_URL) # e.g. redis://:pass@host:6379/0
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [REDIS_URL],   # <— use URL, not (host, port) + password
-        },
-    },
+        "CONFIG": {"hosts": [os.getenv("REDIS_URL")]},
+    }
 }
+
 
 CACHES = {
     "default": {
@@ -180,21 +180,8 @@ CACHES = {
     }
 }
 
-import os
-from urllib.parse import urlparse
+CELERY_TASK_ALWAYS_EAGER = True
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-
-# Derive variants for Celery (use different DBs to avoid key collisions)
-parsed = urlparse(REDIS_URL)
-base = f"{parsed.scheme}://{parsed.netloc}"
-CELERY_BROKER_URL     = os.getenv("CELERY_BROKER_URL",     f"{base}/1")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", f"{base}/2")
-
-# Nice-to-have reliability knobs
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
-CELERY_TIMEZONE = "Asia/Kolkata"
 #CELERY_IMPORTS = ('authentication.tasks',)
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
