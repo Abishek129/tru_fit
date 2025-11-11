@@ -995,7 +995,9 @@ from .utils import send_test_message
 class CashfreeWebhookView(View):
     def post(self, request):
         raw = request.body
+        print("raw", raw)
         sig = request.headers.get("x-webhook-signature")
+        print("headers", request.headers)
 
         # Parse JSON
         try:
