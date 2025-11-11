@@ -529,7 +529,7 @@ key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
 key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
 
 razorpay_client = razorpay.Client(auth=(key_id, key_secret))
-from razorpay.utility import verify_webhook_signature 
+from razorpay.utility import Utility
 import hmac, hashlib
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
@@ -550,7 +550,8 @@ def razorpay_webhook(request):
 
     # A) Using Razorpay helper (recommended)
     try:
-        verify_webhook_signature(raw_body.decode("utf-8"), sig, WEBHOOK_SECRET)
+        Utility().verify_webhook_signature(raw_body, sig, WEBHOOK_SECRET)
+
     except Exception as e:
         # Signature mismatch – ignore the event
         return HttpResponseBadRequest("Invalid signature")
