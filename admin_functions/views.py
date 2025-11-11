@@ -235,7 +235,11 @@ class RBuyNowAPIView(APIView):
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
             coach_id = request.data.get('coach')
-            coach = get_object_or_404(CoachProfile, pk=coach_id)
+            print(coach_id, "coach id" )
+            print(type(coach_id))
+            coach = CoachProfile.objects.get(pk=coach_id)
+            print(coach, "coach obj")
+            #coach = get_object_or_404(CoachProfile, pk=coach_id)
             if ClientDetails.objects.filter(email=email).exists():
                 client = ClientDetails.objects.get(email=email)
                 client.payment_mode="razorpay"
@@ -257,6 +261,7 @@ class RBuyNowAPIView(APIView):
             #print(client)
             finance_details = Finance_details.objects.create(client=client, location="international")
             data = ClientDetailsSerializer(client).data
+            print(data)
             return Response(data, status=status.HTTP_201_CREATED)
 
         except ValueError:
@@ -292,7 +297,7 @@ class RPaymentInitializationView(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
             print("working 2")
             # Pricing lookup (coach level + 'international' plan row)
-            print(client)
+            print(client.coach.coach_level, "coach level")
             coach_level = client.coach.coach_level   
             print(coach_level)     # 'junior' | 'senior' | 'elite'
             location = "international"
