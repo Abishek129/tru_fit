@@ -539,12 +539,17 @@ WEBHOOK_SECRET = key_secret  # set same value in Razorpay dashboard
 
 @csrf_exempt
 def razorpay_webhook(request):
+    print("Webhook received")
     if request.method != "POST":
         return HttpResponseBadRequest("Invalid method")
-
+    print("Webhook POST")
     # 1) Grab raw body & header signature
-    raw_body = request.body  # bytes
+    raw_body = request.body  # 
+    print(raw_body, "raw body")
+    print(request.headers, "headers")
     sig = request.headers.get("X-Razorpay-Signature", "")
+
+    print(sig, "signature")
 
     # 2) Verify signature (choose ONE of the two methods below)
 
