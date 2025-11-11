@@ -529,48 +529,63 @@ key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
 key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
 
 razorpay_client = razorpay.Client(auth=(key_id, key_secret))
+from razorpay.utility import verify_webhook_signature 
+import hmac, hashlib
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.encoding import force_bytes # pip install razorpay
+
+WEBHOOK_SECRET = key_secret  # set same value in Razorpay dashboard
 
 @csrf_exempt
-def paymenthandler(request):
-    if request.method == "POST":
-        body = request.body.decode("utf-8")
-        data = json.loads(body)
+def razorpay_webhook(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid method")
 
-        print("Webhook data:", data)
+    # 1) Grab raw body & header signature
+    raw_body = request.body  # bytes
+    sig = request.headers.get("X-Razorpay-Signature", "")
 
-        # Extract required fields
-        payment_id = data.get("payload", {}).get("payment", {}).get("entity", {}).get("id")
-        razorpay_order_id = data.get("payload", {}).get("payment", {}).get("entity", {}).get("order_id")
-        signature = request.headers.get("X-Razorpay-Signature")   
-        params_dict = {
-            'razorpay_order_id': razorpay_order_id,
-            'razorpay_payment_id': payment_id,
-            'razorpay_signature': signature
-        }
+    # 2) Verify signature (choose ONE of the two methods below)
 
-        try:
-            # Verify payment signature
-            razorpay_client.utility.verify_payment_signature(params_dict)
-            
-            # Capture payment
-            #payment = Payment.objects.get(razorpay_order_id=razorpay_order_id)
-            #razorpay_client.payment.capture(payment_id, payment.amount)
+    # A) Using Razorpay helper (recommended)
+    try:
+        verify_webhook_signature(raw_body.decode("utf-8"), sig, WEBHOOK_SECRET)
+    except Exception as e:
+        # Signature mismatch – ignore the event
+        return HttpResponseBadRequest("Invalid signature")
 
-            # Update payment record
-            #payment.razorpay_payment_id = payment_id
-            #payment.razorpay_signature = signature
-            #payment.status = 'Success'
-            #payment.save()
+    # B) Manual HMAC (if you don’t want the SDK)
+    # expected = hmac.new(force_bytes(WEBHOOK_SECRET), raw_body, hashlib.sha256).hexdigest()
+    # if not hmac.compare_digest(expected, sig):
+    #     return HttpResponseBadRequest("Invalid signature")
 
-            return HttpResponse('Payment successful', status=200)
-        except razorpay.errors.SignatureVerificationError:
-            # Update payment as failed
-            #Payment.objects.filter(razorpay_order_id=razorpay_order_id).update(status='Failed')
-            return HttpResponse('Payment verification failed', status=400)
-        except Exception as e:
-            return HttpResponse(f'An error occurred: {str(e)}', status=500) 
-    else:
-        return HttpResponse('Invalid request method', status=405)
+    # 3) Parse JSON
+    try:
+        event = json.loads(raw_body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    # 4) Idempotency: use event['id'] to ensure you don’t process twice
+    event_id = event.get("id")
+    event_type = event.get("event")  # e.g. 'payment.captured'
+    payload = event.get("payload", {})
+
+    # 5) Handle events
+    if event_type == "payment.captured":
+        pay = payload.get("payment", {}).get("entity", {})
+        payment_id = pay.get("id")
+        order_id = pay.get("order_id")
+        amount = pay.get("amount")  # in paise
+        currency = pay.get("currency")
+        # TODO: mark order as paid, etc.
+
+    elif event_type == "payment.failed":
+        # handle failure
+        pass
+
+    # 6) Always return 2xx quickly so Razorpay doesn’t retry
+    return HttpResponse(status=200)
 
 
 from django.conf import settings
