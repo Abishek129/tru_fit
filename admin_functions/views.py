@@ -518,6 +518,50 @@ class RPaymentVerificationView(APIView):
 
 
 
+
+key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
+key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
+
+razorpay_client = razorpay.Client(auth=(key_id, key_secret))
+
+@csrf_exempt
+def paymenthandler(request):
+    if request.method == "POST":
+        payment_id = request.POST.get('razorpay_payment_id', '')
+        razorpay_order_id = request.POST.get('razorpay_order_id', '')
+        signature = request.POST.get('razorpay_signature', '')
+
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': payment_id,
+            'razorpay_signature': signature
+        }
+
+        try:
+            # Verify payment signature
+            razorpay_client.utility.verify_payment_signature(params_dict)
+            
+            # Capture payment
+            #payment = Payment.objects.get(razorpay_order_id=razorpay_order_id)
+            #razorpay_client.payment.capture(payment_id, payment.amount)
+
+            # Update payment record
+            #payment.razorpay_payment_id = payment_id
+            #payment.razorpay_signature = signature
+            #payment.status = 'Success'
+            #payment.save()
+
+            return HttpResponse('Payment successful', status=200)
+        except razorpay.errors.SignatureVerificationError:
+            # Update payment as failed
+            #Payment.objects.filter(razorpay_order_id=razorpay_order_id).update(status='Failed')
+            return HttpResponse('Payment verification failed', status=400)
+        except Exception as e:
+            return HttpResponse(f'An error occurred: {str(e)}', status=500) 
+    else:
+        return HttpResponse('Invalid request method', status=405)
+
+
 from django.conf import settings
 
 class CBuyNowAPIView(APIView):

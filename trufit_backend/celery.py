@@ -25,5 +25,5 @@ app.conf.beat_schedule = {
         "task": "admin_functions.tasks.delete_inactive_client_coaches", 
         "schedule": crontab(minute=0, hour=18),  
         }
-        # Daily at 2:00 AM
+        
 }
