@@ -533,13 +533,15 @@ razorpay_client = razorpay.Client(auth=(key_id, key_secret))
 @csrf_exempt
 def paymenthandler(request):
     if request.method == "POST":
-        print(request.POST, "post data")
-        payment_id = request.POST.get('razorpay_payment_id', '')
-        razorpay_order_id = request.POST.get('razorpay_order_id', '')
-        signature = request.POST.get('razorpay_signature', '')
-        print(razorpay_order_id, "order id")
-        print(payment_id, "payment id")
-        print(signature, "signature")   
+        body = request.body.decode("utf-8")
+        data = json.loads(body)
+
+        print("Webhook data:", data)
+
+        # Extract required fields
+        payment_id = data.get("payload", {}).get("payment", {}).get("entity", {}).get("id")
+        razorpay_order_id = data.get("payload", {}).get("payment", {}).get("entity", {}).get("order_id")
+        signature = request.headers.get("X-Razorpay-Signature")   
         params_dict = {
             'razorpay_order_id': razorpay_order_id,
             'razorpay_payment_id': payment_id,
