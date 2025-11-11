@@ -536,61 +536,46 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.encoding import force_bytes # pip install razorpay
 
 WEBHOOK_SECRET = key_secret  # set same value in Razorpay dashboard
+import json
+import hmac, hashlib
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+
+# ✅ Your Razorpay Webhook Secret (same as dashboard)
+#WEBHOOK_SECRET = "YOUR_WEBHOOK_SECRET_HERE"
+
 
 @csrf_exempt
-def razorpay_webhook(request):
-    print("Webhook received")
-    if request.method != "POST":
-        return HttpResponseBadRequest("Invalid method")
+def payment_webhook(request):
     print("Webhook POST")
-    # 1) Grab raw body & header signature
-    raw_body = request.body  # 
-    print(raw_body, "raw body")
-    print(request.headers, "headers")
-    sig = request.headers.get("X-Razorpay-Signature", "")
+    
+    raw_body = request.body.decode("utf-8")
+    print("body", raw_body)
 
-    print(sig, "signature")
+    sig_received = request.headers.get("X-Razorpay-Signature")
+    print("signature received:", sig_received)
 
-    # 2) Verify signature (choose ONE of the two methods below)
+    # ✅ Verify signature manually (always works)
+    expected = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        raw_body.encode(),
+        hashlib.sha256
+    ).hexdigest()
 
-    # A) Using Razorpay helper (recommended)
-    try:
-        Utility().verify_webhook_signature(raw_body, sig, WEBHOOK_SECRET)
+    print("expected:", expected)
 
-    except Exception as e:
-        # Signature mismatch – ignore the event
+    if not hmac.compare_digest(expected, sig_received):
+        print("❌ Signature mismatch")
         return HttpResponseBadRequest("Invalid signature")
 
-    # B) Manual HMAC (if you don’t want the SDK)
-    # expected = hmac.new(force_bytes(WEBHOOK_SECRET), raw_body, hashlib.sha256).hexdigest()
-    # if not hmac.compare_digest(expected, sig):
-    #     return HttpResponseBadRequest("Invalid signature")
+    print("✅ Signature Verified")
 
-    # 3) Parse JSON
-    try:
-        event = json.loads(raw_body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return HttpResponseBadRequest("Invalid JSON")
+    # ✅ Decode JSON
+    data = json.loads(raw_body)
+    event = data.get("event")
 
-    # 4) Idempotency: use event['id'] to ensure you don’t process twice
-    event_id = event.get("id")
-    event_type = event.get("event")  # e.g. 'payment.captured'
-    payload = event.get("payload", {})
+    print("Webhook event:", event)
 
-    # 5) Handle events
-    if event_type == "payment.captured":
-        pay = payload.get("payment", {}).get("entity", {})
-        payment_id = pay.get("id")
-        order_id = pay.get("order_id")
-        amount = pay.get("amount")  # in paise
-        currency = pay.get("currency")
-        # TODO: mark order as paid, etc.
-
-    elif event_type == "payment.failed":
-        # handle failure
-        pass
-
-    # 6) Always return 2xx quickly so Razorpay doesn’t retry
     return HttpResponse(status=200)
 
 
