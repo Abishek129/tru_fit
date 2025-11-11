@@ -1012,7 +1012,7 @@ class CashfreeWebhookView(View):
         timestamp_header = request.headers.get("x-webhook-timestamp")
         sig = request.headers.get("x-webhook-signature")
         print("headers", request.headers)
-        computed_sig = _compute_signature(timestamp_header, raw, settings.CASHFREE_CLIENT_SECRET)
+        computed_sig = _compute_signature(timestamp_header, raw, settings.CASHFREE_SECRET_KEY)
         if not hmac.compare_digest(computed_sig, sig):
             print("computed_sig", computed_sig)
             print("sig", sig)
