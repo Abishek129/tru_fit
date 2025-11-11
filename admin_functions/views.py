@@ -977,7 +977,10 @@ def verify_signature(raw_body: bytes, signature_b64: str) -> bool:
         # Don’t 500 – just refuse verification cleanly
         return False
     digest = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).digest()
+    print(digest, "digest")
     expected = base64.b64encode(digest).decode("utf-8")
+    print(expected, "expected")
+    
     return hmac.compare_digest(expected, signature_b64 or "")
 
 from django.http import JsonResponse
