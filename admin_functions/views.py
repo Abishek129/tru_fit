@@ -535,7 +535,9 @@ def paymenthandler(request):
         payment_id = request.POST.get('razorpay_payment_id', '')
         razorpay_order_id = request.POST.get('razorpay_order_id', '')
         signature = request.POST.get('razorpay_signature', '')
-
+        print(razorpay_order_id, "order id")
+        print(payment_id, "payment id")
+        print(signature, "signature")   
         params_dict = {
             'razorpay_order_id': razorpay_order_id,
             'razorpay_payment_id': payment_id,
