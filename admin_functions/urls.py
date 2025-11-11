@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView, UserProfileView, TopClientsByPaymentMode, ClientCoachStatsView
 from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view, NotificationListView, NotificationEditView, NotificationView, EnquiryFormView
 from .views import coach_profile_list, coach_profile_detail
-from .views import testimonial_list, testimonial_detail, paymenthandler
+from .views import testimonial_list, testimonial_detail, razorpay_webhook
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -59,7 +59,7 @@ urlpatterns = [
     path('enquiry/', EnquiryFormView.as_view(), name='enquiry-form'),
     path('stats/', ClientCoachStatsView.as_view(), name='stats'),
     # =============== Webhook Apis ==============
-    path('paymenthandler/', paymenthandler, name='paymenthandler'),
+    path('paymenthandler/', razorpay_webhook, name='paymenthandler'),
     # =============== Client's Apis ==============
     path('coach-profiles/', coach_profile_list, name='coach-profile-list'),
     path('coach-profiles/<int:coach_id>/', coach_profile_detail, name='coach-profile-detail'),
