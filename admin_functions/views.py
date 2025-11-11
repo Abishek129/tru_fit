@@ -533,6 +533,7 @@ razorpay_client = razorpay.Client(auth=(key_id, key_secret))
 @csrf_exempt
 def paymenthandler(request):
     if request.method == "POST":
+        print(request.POST, "post data")
         payment_id = request.POST.get('razorpay_payment_id', '')
         razorpay_order_id = request.POST.get('razorpay_order_id', '')
         signature = request.POST.get('razorpay_signature', '')
