@@ -551,7 +551,7 @@ def payment_webhook(request):
     
     raw_body = request.body.decode("utf-8")
     print("body", raw_body)
-
+    print('headers', request.headers)
     sig_received = request.headers.get("X-Razorpay-Signature")
     print("signature received:", sig_received)
 
