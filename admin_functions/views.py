@@ -970,16 +970,26 @@ import hmac, hashlib, base64, json
 
 secret = getattr(settings, "CASHFREE_SECRET_KEY", None)
 CASHFREE_WEBHOOK_SECRET = secret  # from PG Dashboard
+import base64
+import hmac
+import hashlib
 
-def verify_signature(raw_body: bytes, signature_b64: str) -> bool:
-    secret = getattr(settings, "CASHFREE_SECRET_KEY", None)
-    if not secret:
-        # Don’t 500 – just refuse verification cleanly
-        return False
-    digest = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).digest()
-    print(digest, "digest")
-    expected = base64.b64encode(digest).decode("utf-8")
-    print(expected, "expected")
+def _compute_signature(timestamp_str: str, raw_body_bytes: bytes, client_secret: str) -> str:
+    # Combine timestamp as bytes + payload bytes
+    print("timestamp_str", timestamp_str)
+    print("raw_body_bytes", raw_body_bytes)
+    message = timestamp_str.encode('utf-8') + raw_body_bytes
+    print("message", message)
+    # Compute HMAC SHA-256 using client_secret (as bytes too)
+    digest = hmac.new(client_secret.encode('utf-8'),
+                      message,
+                      hashlib.sha256).digest()
+    print("digest", digest)
+    # Base64 encode the raw digest to get the signature string
+    signature = base64.b64encode(digest).decode('utf-8')
+    print("signature", signature)
+    return signature
+
     
     return hmac.compare_digest(expected, signature_b64 or "")
 
@@ -999,10 +1009,14 @@ class CashfreeWebhookView(View):
     def post(self, request):
         raw = request.body
         print("raw", raw)
+        timestamp_header = request.headers.get("x-webhook-timestamp")
         sig = request.headers.get("x-webhook-signature")
         print("headers", request.headers)
-        flag = verify_signature(raw, sig)
-        print("signature valid:", flag)
+        computed_sig = _compute_signature(timestamp_header, raw, settings.CASHFREE_CLIENT_SECRET)
+        if not hmac.compare_digest(computed_sig, sig):
+            print("computed_sig", computed_sig)
+            print("sig", sig)
+            print("Signature mismatch")
         # Parse JSON
         try:
             payload = json.loads(raw.decode("utf-8"))
