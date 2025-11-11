@@ -968,11 +968,11 @@ from django.utils.decorators import method_decorator
 from django.views import View
 import hmac, hashlib, base64, json
 
-secret = getattr(settings, "CASHFREE_WEBHOOK_SECRET", None)
-CASHFREE_WEBHOOK_SECRET = "your_pg_secret_key"  # from PG Dashboard
+secret = getattr(settings, "CASHFREE_SECRET_KEY", None)
+CASHFREE_WEBHOOK_SECRET = secret  # from PG Dashboard
 
 def verify_signature(raw_body: bytes, signature_b64: str) -> bool:
-    secret = getattr(settings, "CASHFREE_WEBHOOK_SECRET", None)
+    secret = getattr(settings, "CASHFREE_SECRET_KEY", None)
     if not secret:
         # Don’t 500 – just refuse verification cleanly
         return False
@@ -998,7 +998,8 @@ class CashfreeWebhookView(View):
         print("raw", raw)
         sig = request.headers.get("x-webhook-signature")
         print("headers", request.headers)
-
+        flag = verify_signature(raw, sig)
+        print("signature valid:", flag)
         # Parse JSON
         try:
             payload = json.loads(raw.decode("utf-8"))
