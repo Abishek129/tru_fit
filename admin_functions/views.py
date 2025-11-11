@@ -253,6 +253,7 @@ class RBuyNowAPIView(APIView):
                 client = ClientDetails.objects.create(
                     name=name,
                     email=email,
+                    coach=coach,                 # REQUIRED FK
                     phone_number=phone_number,                # REQUIRED FK
                     residence=residence,
                     payment_mode="razorpay",     # fixed
