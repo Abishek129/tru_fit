@@ -535,7 +535,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.encoding import force_bytes # pip install razorpay
 
-WEBHOOK_SECRET = key_secret  # set same value in Razorpay dashboard
+WEBHOOK_SECRET = "strong_secret"  # set same value in Razorpay dashboard
 import json
 import hmac, hashlib
 from django.http import HttpResponse, HttpResponseBadRequest
