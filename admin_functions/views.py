@@ -614,7 +614,7 @@ def payment_webhook(request):
                 active_client.location = "international"
                 active_client.save()
                 # ======================== delete client_coach if revenue is zero
-            finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
+            finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date', '-id').first()                
             finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(amount_paid))
             if client_obj.plan == 1:
                 finance.end_date = timezone.now()
