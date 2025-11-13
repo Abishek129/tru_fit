@@ -431,77 +431,77 @@ class RPaymentVerificationView(APIView):
             # Update the order's payment status
             
             
-            client_obj.payment_status = "paid"
-            
-            client_obj.save(update_fields=["payment_status"])
-            client_obj.payment_date = timezone.now()
-            cat = Category.objects.get(coach_level=client_obj.coach.coach_level, location="international")
-            if client_obj.plan == 2:
-                    plan = Plan.objects.get(category=cat, duration_weeks=12)
-                    order_amt = plan.price
-            elif client_obj.plan == 3:
-                plan = Plan.objects.get(category=cat, duration_weeks=24)
-                order_amt = plan.price
-            else:
-                plan = Plan.objects.get(category=cat, duration_weeks=None)
-                order_amt = plan.price
-            
-            if client_obj.plan != 1:
-                client_obj.active = True
-                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
-                
-                if client_obj.plan == 2:
-                    plan = Plan.objects.get(category=cat, duration_weeks=12)
-                    order_amt = plan.price
-                else:
-                    plan = Plan.objects.get(category=cat, duration_weeks=24)
-                    order_amt = plan.price
-                
-                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
-                coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
+#            client_obj.payment_status = "paid"
+#            
+#            client_obj.save(update_fields=["payment_status"])
+#            client_obj.payment_date = timezone.now()
+#            cat = Category.objects.get(coach_level=client_obj.coach.coach_level, location="international")
+#            if client_obj.plan == 2:
+#                    plan = Plan.objects.get(category=cat, duration_weeks=12)
+#                    order_amt = plan.price
+#            elif client_obj.plan == 3:
+#                plan = Plan.objects.get(category=cat, duration_weeks=24)
+#                order_amt = plan.price
+#            else:
+#                plan = Plan.objects.get(category=cat, duration_weeks=None)
+#                order_amt = plan.price
+#            
+#            if client_obj.plan != 1:
+#                client_obj.active = True
+#                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+#                
+#                if client_obj.plan == 2:
+#                    plan = Plan.objects.get(category=cat, duration_weeks=12)
+#                    order_amt = plan.price
+#                else:
+#                    plan = Plan.objects.get(category=cat, duration_weeks=24)
+#                    order_amt = plan.price
+#                
+#                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
+#                coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                 
                     
-                coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(order_amt))
-                coach_revenue_obj.save()
-                active_client.active = True
-                active_client.location = "international"
-                active_client.save()
+#                coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(order_amt))
+#                coach_revenue_obj.save()
+#                active_client.active = True
+#                active_client.location = "international"
+#                active_client.save()
                 #print(active_client)
-            else:
-                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
-                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
-                active_client.location = "international"
-                active_client.save()
-            finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date').first()
-            finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
-            if client_obj.plan == 1:
-                finance.end_date = timezone.now()
-                send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
-                Notification.objects.create(
-            
-                    message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
+#            else:
+#                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+#                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
+#                active_client.location = "international"
+#                active_client.save()
+#            finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date').first()
+#            finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
+#            if client_obj.plan == 1:
+#                finance.end_date = timezone.now()
+#                send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
+#                Notification.objects.create(
+#            
+#                    message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
                     
-                )
+#                )
 
-            elif client_obj.plan == 2:
-                finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
-                send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
-                Notification.objects.create(
+#            elif client_obj.plan == 2:
+#                finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+#                send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
+#                Notification.objects.create(
+#                    
+#                    message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
+#                    
+#                )
+#            elif client_obj.plan == 3:
+#                finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+#                send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
+#                Notification.objects.create(
+                   
+#                    message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
                     
-                    message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
-                    
-                )
-            elif client_obj.plan == 3:
-                finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
-                send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
-                Notification.objects.create(
-                    
-                    message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
-                    
-                )
+#                )
             
-            finance.save()
-            client_obj.save()
+ #           finance.save()
+  #          client_obj.save()
             
 
             
@@ -567,8 +567,98 @@ def payment_webhook(request):
     if not hmac.compare_digest(expected, sig_received):
         print("❌ Signature mismatch")
         return HttpResponseBadRequest("Invalid signature")
+    body = json.loads(request.body.decode("utf-8"))
+    payment = body["payload"]["payment"]["entity"]
+    payment_status = payment["status"]
+    client_id = payment["notes"].get("client_id")   
+    amount_paid = payment["amount"] / 100.0  # amount is in dollors
+    client_obj = get_object_or_404(ClientDetails, id=client_id)
 
     print("✅ Signature Verified")
+    if payment_status == "failed":
+        finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()
+        active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+        if not active_client.inr_revenue or not active_client.us_revenue:
+            del active_client
+            
+        del finance
+            #return JsonResponse({"ok": True}, status=200)
+        return Response({"message": "Payment failed"}, status=200)
+    if payment_status == "captured":
+        if client_obj.payment_status != "paid":
+            client_obj.payment_status = "paid"
+            
+            client_obj.save(update_fields=["payment_status"])
+            client_obj.payment_date = timezone.now()
+            if client_obj.plan != 1:
+                client_obj.active = True
+                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
+                coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
+                
+                    
+                coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
+                coach_revenue_obj.save()
+                active_client.start_date = timezone.now() + timezone.timedelta(days=7)
+                #active_client.start_date = timezone.now() + 7 days
+                #active_client.end_date = active_client.start_date + relativedelta(months=client_obj.plan)
+                #active_client.end_date = active_client.start_date + timezone.timedelta(weeks=client_obj.plan*12)
+
+                active_client.active = True
+                active_client.location = "international"
+                active_client.save()
+                #print(active_client)
+            else:
+                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
+                active_client.location = "international"
+                active_client.save()
+                # ======================== delete client_coach if revenue is zero
+            finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
+            finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(amount_paid))
+            if client_obj.plan == 1:
+                finance.end_date = timezone.now()
+                send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: USD {amount_paid}")
+                Notification.objects.create(
+            
+                    message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
+                    
+                )
+
+            elif client_obj.plan == 2:
+                finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
+                send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: USD {amount_paid}")
+                Notification.objects.create(
+                    
+                    message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
+                    
+                )
+            elif client_obj.plan == 3:
+                finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
+                send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: USD {amount_paid}")
+                Notification.objects.create(
+                    
+                    message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
+                    
+                )
+            
+            finance.save()
+            client_obj.save()
+                #print(active_client)
+  
+            #finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date', '-id').first()
+            finance.save()
+            client_obj.save()
+
+            return Response({"message": "Payment captured and client updated"}, status=200)
+    
+
+
+        
 
     # ✅ Decode JSON
     data = json.loads(raw_body)
@@ -1002,7 +1092,7 @@ import logging
 from django.utils import timezone
 log = logging.getLogger(__name__)
 
-
+from dateutil.relativedelta import relativedelta
 from .utils import send_test_message
 @method_decorator(csrf_exempt, name="dispatch")
 class CashfreeWebhookView(View):
@@ -1019,6 +1109,7 @@ class CashfreeWebhookView(View):
             print("computed_sig", computed_sig)
             print("sig", sig)
             print("Signature mismatch")
+            return JsonResponse({"message": "Invalid signature"}, status=400)
         # Parse JSON
         try:
             payload = json.loads(raw.decode("utf-8"))
@@ -1072,6 +1163,11 @@ class CashfreeWebhookView(View):
                         
                     coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     coach_revenue_obj.save()
+                    active_client.start_date = timezone.now() + timezone.timedelta(days=7)
+                    #active_client.start_date = timezone.now() + 7 days
+                    #active_client.end_date = active_client.start_date + relativedelta(months=client_obj.plan)
+                    #active_client.end_date = active_client.start_date + timezone.timedelta(weeks=client_obj.plan*12)
+
                     active_client.active = True
                     active_client.location = "domestic"
                     active_client.save()
@@ -1095,6 +1191,8 @@ class CashfreeWebhookView(View):
 
                 elif client_obj.plan == 2:
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                    active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                    active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
                         
@@ -1103,6 +1201,8 @@ class CashfreeWebhookView(View):
                     )
                 elif client_obj.plan == 3:
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                    active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                    active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
                         
