@@ -576,7 +576,7 @@ def payment_webhook(request):
 
     print("✅ Signature Verified")
     if payment_status == "failed":
-        finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()
+        finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date', '-id').first()
         active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
         if not active_client.inr_revenue or not active_client.us_revenue:
             del active_client
