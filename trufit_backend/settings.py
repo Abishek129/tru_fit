@@ -32,12 +32,8 @@ DEBUG = True
 
 #ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com", ".vercel.app", "localhost:5173"]
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost",
-    "http://localhost:5173"  # Allow requests from React frontend
-]
-
+ 
+CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
 AUTH_USER_MODEL = 'admin_functions.User'
 
 # If you want to allow all origins (not recommended for production):
@@ -76,7 +72,15 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
         "rest_framework.parsers.FormParser",
         "rest_framework.parsers.MultiPartParser",
-    ]
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "20/min",
+        "user": "100/min",
+    },
 }
 
 MIDDLEWARE = [

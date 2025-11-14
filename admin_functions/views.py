@@ -1096,6 +1096,8 @@ from dateutil.relativedelta import relativedelta
 from .utils import send_test_message
 @method_decorator(csrf_exempt, name="dispatch")
 class CashfreeWebhookView(View):
+    throttle_classes = []
+
     def post(self, request):
         raw = request.body
         print("raw", raw)
