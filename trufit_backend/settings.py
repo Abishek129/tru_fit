@@ -28,7 +28,7 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = 'django-insecure-ox_%gpzf=jy^3jp-6atrs_ncek47inxcc&+a-2+j%sx(f!szxk'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 #ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".onrender.com", ".vercel.app", "localhost:5173"]
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
@@ -166,6 +166,7 @@ SIMPLE_JWT = {
 #DATABASES["default"]["CONN_HEALTH_CHECKS"] = True  # Django 4+
 
 REDIS_URL = os.getenv("REDIS_URL") 
+#REDIS_URL = "redis://:trustrongfitpass@13.233.100.193:6379/2"
 #print(REDIS_URL) # e.g. redis://:pass@host:6379/0
 
 CHANNEL_LAYERS = {
@@ -173,7 +174,7 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {"hosts": [os.getenv("REDIS_URL")]},
     }
-}
+} 
 import os
 from urllib.parse import urlparse
 
@@ -189,7 +190,8 @@ def with_db(url: str, db: int) -> str:
     return f"{parsed.scheme}://{parsed.netloc}{path}"
 
 CACHE_REDIS_URL   = with_db(REDIS_URL, 1)       # /1
-CELERY_BROKER_URL = with_db(REDIS_URL, 2)       # /2
+CELERY_BROKER_URL = with_db(REDIS_URL, 2)    
+#print(CELERY_BROKER_URL, "============URL===============")   # /2
 CELERY_RESULT_URL = with_db(REDIS_URL, 3) 
 
 CACHES = {
