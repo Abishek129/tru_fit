@@ -787,33 +787,15 @@ def cf_headers():
 import time
 import requests
 class CPaymentTestView(APIView):
-    """
-    Creates a Cashfree TEST Order for a given client
-    with a fixed amount of ₹1. Useful for checking
-    integration / Drop Checkout flow.
-    """
     permission_classes = [AllowAny]
 
-    def post(self, request, client_id):
+    def post(self, request):
         try:
-            #client = get_object_or_404(ClientDetails, id=client_id)
-
-            # Optional: don't block even if client already paid,
-            # since this is just a test. Comment this out if you
-            # want to strictly block.
-            # if client.payment_status == "paid":
-            #     return Response(
-            #         {"error": "Payment already completed for this client."},
-            #         status=status.HTTP_400_BAD_REQUEST
-            #     )
-
             order_currency = "INR"
-            order_amount = 1.0   # ← fixed 1 rupee for testing
+            order_amount = 1.0
 
-            # Unique order_id (mark as test_ to distinguish)
             now = datetime.now().strftime("%Y%m%d_%H%M%S")
             order_id = f"test_{now}"
-
 
             payload = {
                 "order_id": order_id,
@@ -822,9 +804,8 @@ class CPaymentTestView(APIView):
                 "customer_details": {
                     "customer_id": "1",
                     "customer_email": "noemail@example.com",
-                    #"customer_phone": (client.phone_number or "").strip()[:15],
                 },
-                "order_note": f"TEST PAYMENT ₹1 for client ",
+                "order_note": "TEST PAYMENT ₹1",
             }
 
             url = f"{cf_base_url()}/orders"
@@ -871,12 +852,91 @@ class CPaymentTestView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
-
         except Exception as e:
             return Response(
-                {"error": "Unexpected error in test payment view", "details": str(e)},
+                {
+                    "error": "Unexpected error in test payment view",
+                    "details": str(e),
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+class CPaymentTestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            order_currency = "INR"
+            order_amount = 1.0
+
+            now = datetime.now().strftime("%Y%m%d_%H%M%S")
+            order_id = f"test_{now}"
+
+            payload = {
+                "order_id": order_id,
+                "order_amount": order_amount,
+                "order_currency": order_currency,
+                "customer_details": {
+                    "customer_id": "1",
+                    "customer_email": "noemail@example.com",
+                    "customer_phone": "9999999999",  # <- required
+                },
+                "order_note": "TEST PAYMENT ₹1 for client",
+            }
+
+
+            url = f"{cf_base_url()}/orders"
+            headers = cf_headers()
+            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+
+            if resp.status_code not in (200, 201):
+                return Response(
+                    {
+                        "error": "Cashfree test order creation failed",
+                        "status": resp.status_code,
+                        "response": resp.text,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            data = resp.json()
+            payment_session_id = data.get("payment_session_id")
+            if not payment_session_id:
+                return Response(
+                    {
+                        "error": "payment_session_id missing in Cashfree response",
+                        "response": data,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            app_id = getattr(settings, "CASHFREE_APP_ID", "")
+
+            return Response(
+                {
+                    "cashfree_order_id": order_id,
+                    "payment_session_id": payment_session_id,
+                    "currency": order_currency,
+                    "amount": order_amount,
+                    "app_id": app_id,
+                    "client": {
+                        "id": "test_client",
+                        "name": "Test User",
+                        "email": "",
+                        "phone_number": "test_phone",
+                    },
+                    "test": True,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": "Unexpected error in test payment view",
+                    "details": str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 class CPaymentInitializationView(APIView):
     """
     Creates a Cashfree Order for a given client (ClientDetails) and returns payment_session_id.
