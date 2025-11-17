@@ -3,7 +3,7 @@ from .views import BlogViewSet, TestimonialViewSet, CoachProfileViewSet, CoachCe
 from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView, UserProfileView, TopClientsByPaymentMode, ClientCoachStatsView
 from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view, NotificationListView, NotificationEditView, NotificationView, EnquiryFormView
-from .views import coach_profile_list, coach_profile_detail
+from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,CashfreeWebhookView
 from .views import testimonial_list, testimonial_detail, payment_webhook
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
@@ -26,7 +26,7 @@ urlpatterns = [
     path('ind-payment-init/<int:client_id>/', CPaymentInitializationView.as_view(), name = 'payment-init-ind'),
     path('ind-payment-verify/', CPaymentVerificationView.as_view(), name = "payment-verify-ind"),
     path("cashfree-webhook/", CPaymentWebhookView.as_view(), name = "cashfree-webhook"),
-    path("cashfree-webhook2/",CashfreeWebhookView.as_view(), name = 'webhook'),
+    
     path("auth/signup/", SignupView.as_view(), name="signup"),
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/admin/login/", AdminLoginView.as_view(), name="admin-login"),
@@ -58,8 +58,13 @@ urlpatterns = [
     path('recent-clients/', TopClientsByPaymentMode.as_view(), name='top-clients'),
     path('enquiry/', EnquiryFormView.as_view(), name='enquiry-form'),
     path('stats/', ClientCoachStatsView.as_view(), name='stats'),
-    # =============== Webhook Apis ==============
+    # =============== Payment Test Api ==============
+    path('cashfree-payment-test/', CPaymentTestView.as_view(), name='cashfree-payment-test'),
+
+    # =============== Webhook Apis ==================
+    path('test-cashfree-webhook/', CashfreeWebhookView.as_view(), name='test-webhook'),
     path('paymenthandler/', payment_webhook, name='paymenthandler'),
+    path("cashfree-webhook2/",CashfreeWebhookView.as_view(), name = 'webhook'),
     # =============== Client's Apis ==============
     path('coach-profiles/', coach_profile_list, name='coach-profile-list'),
     path('coach-profiles/<int:coach_id>/', coach_profile_detail, name='coach-profile-detail'),

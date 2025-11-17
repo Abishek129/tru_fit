@@ -546,6 +546,43 @@ from django.views.decorators.csrf import csrf_exempt
 
 
 @csrf_exempt
+def payment_webhook_test(request):
+    print("Webhook POST")
+    
+    raw_body = request.body.decode("utf-8")
+    print("body", raw_body)
+    print('headers', request.headers)
+    sig_received = request.headers.get("X-Razorpay-Signature")
+    print("signature received:", sig_received)
+
+    # ✅ Verify signature manually (always works)
+    expected = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        raw_body.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    print("expected:", expected)
+
+    if not hmac.compare_digest(expected, sig_received):
+        print("❌ Signature mismatch")
+        return HttpResponseBadRequest("Invalid signature")
+    body = json.loads(request.body.decode("utf-8"))
+    payment = body["payload"]["payment"]["entity"]
+    payment_status = payment["status"]
+    client_id = payment["notes"].get("client_id")   
+    amount_paid = payment["amount"] / 100.0  # amount is in dollors
+    #client_obj = get_object_or_404(ClientDetails, id=client_id)
+    
+
+    print("✅ Signature Verified")
+    if payment_status == "failed":
+        return HttpResponse("Payment failed", status=200)
+    if payment_status == "captured":
+        return HttpResponse("Payment captured", status=200)
+    return HttpResponse("Unhandled event", status=200)
+
+@csrf_exempt
 def payment_webhook(request):
     print("Webhook POST")
     
@@ -655,6 +692,9 @@ def payment_webhook(request):
             client_obj.save()
 
             return Response({"message": "Payment captured and client updated"}, status=200)
+        
+        return Response({"message": "Payment neither failed nor captured"}, status=200)
+    return Response({"message": "Payment status unhandled"}, status=200)    
     
 
 
@@ -744,7 +784,99 @@ def cf_headers():
         "x-api-version": "2023-08-01",
         "Content-Type": "application/json",
     }
+import time
+import requests
+class CPaymentTestView(APIView):
+    """
+    Creates a Cashfree TEST Order for a given client
+    with a fixed amount of ₹1. Useful for checking
+    integration / Drop Checkout flow.
+    """
+    permission_classes = [AllowAny]
 
+    def post(self, request, client_id):
+        try:
+            #client = get_object_or_404(ClientDetails, id=client_id)
+
+            # Optional: don't block even if client already paid,
+            # since this is just a test. Comment this out if you
+            # want to strictly block.
+            # if client.payment_status == "paid":
+            #     return Response(
+            #         {"error": "Payment already completed for this client."},
+            #         status=status.HTTP_400_BAD_REQUEST
+            #     )
+
+            order_currency = "INR"
+            order_amount = 1.0   # ← fixed 1 rupee for testing
+
+            # Unique order_id (mark as test_ to distinguish)
+            now = datetime.now().strftime("%Y%m%d_%H%M%S")
+            order_id = f"test_{now}"
+
+
+            payload = {
+                "order_id": order_id,
+                "order_amount": order_amount,
+                "order_currency": order_currency,
+                "customer_details": {
+                    "customer_id": "1",
+                    "customer_email": "noemail@example.com",
+                    #"customer_phone": (client.phone_number or "").strip()[:15],
+                },
+                "order_note": f"TEST PAYMENT ₹1 for client ",
+            }
+
+            url = f"{cf_base_url()}/orders"
+            headers = cf_headers()
+            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+
+            if resp.status_code not in (200, 201):
+                return Response(
+                    {
+                        "error": "Cashfree test order creation failed",
+                        "status": resp.status_code,
+                        "response": resp.text,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            data = resp.json()
+            payment_session_id = data.get("payment_session_id")
+            if not payment_session_id:
+                return Response(
+                    {
+                        "error": "payment_session_id missing in Cashfree response",
+                        "response": data,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            app_id = getattr(settings, "CASHFREE_APP_ID", "")
+
+            return Response(
+                {
+                    "cashfree_order_id": order_id,
+                    "payment_session_id": payment_session_id,
+                    "currency": order_currency,
+                    "amount": order_amount,
+                    "app_id": app_id,
+                    "client": {
+                        "id": client.id,
+                        "name": client.name,
+                        "email": client.email,
+                        "phone_number": client.phone_number,
+                    },
+                    "test": True,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": "Unexpected error in test payment view", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 class CPaymentInitializationView(APIView):
     """
     Creates a Cashfree Order for a given client (ClientDetails) and returns payment_session_id.
@@ -1094,6 +1226,51 @@ log = logging.getLogger(__name__)
 
 from dateutil.relativedelta import relativedelta
 from .utils import send_test_message
+
+@method_decorator(csrf_exempt, name="dispatch")
+class TestWebhookView(View):
+    def post(self, request):
+        raw = request.body
+        timestamp_header = request.headers.get("x-webhook-timestamp")
+        sig = request.headers.get("x-webhook-signature")
+        computed_sig = _compute_signature(timestamp_header, raw, settings.CASHFREE_SECRET_KEY)
+        if hmac.compare_digest(computed_sig, sig):
+            print("Signature verified ==================== ")
+        if not hmac.compare_digest(computed_sig, sig):
+            print("computed_sig", computed_sig)
+            print("sig", sig)
+            print("Signature mismatch")
+            return JsonResponse({"message": "Invalid signature"}, status=400)
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+        # Dashboard test pings sometimes include a simple marker
+        data = payload.get("data") or {}
+        if isinstance(data, dict) and data.get("test_object"):
+            return JsonResponse({"message": "Test Webhook received"}, status=200)
+
+        # Verify signature for real events BEFORE doing anything
+        #if not sig or not verify_signature(raw, sig):
+        #    return JsonResponse({"message": "Invalid signature"}, status=400)
+
+        event_type = payload.get("type")  # e.g. PAYMENT_SUCCESS_WEBHOOK
+        order = data.get("order") or {}
+        payment = data.get("payment") or {}
+        customer = data.get("customer_details") or {}
+
+        order_id     = order.get("order_id")
+        order_amt    = order.get("order_amount")
+        order_cur    = order.get("order_currency")
+        p_status     = (payment.get("payment_status") or "").upper()
+        cf_payment_id= payment.get("cf_payment_id")
+        p_msg        = payment.get("payment_message")
+        if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
+            print("Payment success webhook received")
+        elif event_type == "PAYMENT_FAILED_WEBHOOK" or p_status == "FAILED":
+            print("Payment failed webhook received")
+        return JsonResponse({"message": "Test Webhook received"}, status=200)
 @method_decorator(csrf_exempt, name="dispatch")
 class CashfreeWebhookView(View):
     throttle_classes = []
