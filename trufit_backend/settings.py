@@ -35,9 +35,15 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
  
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
 AUTH_USER_MODEL = 'admin_functions.User'
+CORS_ALLOWED_ORIGINS = [
+    "https://tru-fit.vercel.app",
+    # add others if needed:
+    # "http://localhost:3000",
+]
 
+#print(CORS_ALLOWED_ORIGINS, "=================CORS===================")
 # If you want to allow all origins (not recommended for production):
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 # Application definition
 
 INSTALLED_APPS = [
