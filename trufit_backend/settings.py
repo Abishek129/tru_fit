@@ -40,7 +40,7 @@ CORS_ALLOWED_ORIGINS = [
     # add others if needed:
     # "http://localhost:3000",
 ]
-
+CASHFREE_ENV = os.getenv("CASHFREE_ENV", "TEST")
 #print(CORS_ALLOWED_ORIGINS, "=================CORS===================")
 # If you want to allow all origins (not recommended for production):
 CORS_ALLOW_ALL_ORIGINS = False
