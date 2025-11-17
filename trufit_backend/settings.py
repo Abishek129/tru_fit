@@ -38,7 +38,7 @@ AUTH_USER_MODEL = 'admin_functions.User'
 CORS_ALLOWED_ORIGINS = [
     "https://tru-fit.vercel.app",
     "https://www.betrufit.com",
-    "http://betrufit.com",
+    "https://betrufit.com",
     # add others if needed:
     # "http://localhost:3000",
 ]
