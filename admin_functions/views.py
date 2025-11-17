@@ -862,10 +862,10 @@ class CPaymentTestView(APIView):
                     "amount": order_amount,
                     "app_id": app_id,
                     "client": {
-                        "id": client.id,
-                        "name": client.name,
-                        "email": client.email,
-                        "phone_number": client.phone_number,
+                        "id": "test_client",
+                        "name": "Test User",
+                        "email": "",
+                        "phone_number": "test_phone",
                     },
                     "test": True,
                 },
@@ -1231,9 +1231,15 @@ from .utils import send_test_message
 class TestWebhookView(View):
     def post(self, request):
         raw = request.body
+        print("raw body working")
         timestamp_header = request.headers.get("x-webhook-timestamp")
+        print("timestamp_header")
         sig = request.headers.get("x-webhook-signature")
+        print("sig")
+        
         computed_sig = _compute_signature(timestamp_header, raw, settings.CASHFREE_SECRET_KEY)
+        print("computed_sig")
+
         if hmac.compare_digest(computed_sig, sig):
             print("Signature verified ==================== ")
         if not hmac.compare_digest(computed_sig, sig):
@@ -1241,13 +1247,15 @@ class TestWebhookView(View):
             print("sig", sig)
             print("Signature mismatch")
             return JsonResponse({"message": "Invalid signature"}, status=400)
+        print("after signature verification")
         try:
             payload = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
             return JsonResponse({"message": "Invalid JSON"}, status=400)
-
+        print("payload", payload)
         # Dashboard test pings sometimes include a simple marker
         data = payload.get("data") or {}
+        print("data", data)
         if isinstance(data, dict) and data.get("test_object"):
             return JsonResponse({"message": "Test Webhook received"}, status=200)
 
@@ -1255,21 +1263,32 @@ class TestWebhookView(View):
         #if not sig or not verify_signature(raw, sig):
         #    return JsonResponse({"message": "Invalid signature"}, status=400)
 
-        event_type = payload.get("type")  # e.g. PAYMENT_SUCCESS_WEBHOOK
+        event_type = payload.get("type")
+        print("2")  # e.g. PAYMENT_SUCCESS_WEBHOOK
         order = data.get("order") or {}
+        print("3")
         payment = data.get("payment") or {}
+        print("4")
         customer = data.get("customer_details") or {}
+        print("5")
 
         order_id     = order.get("order_id")
+        print("6")
         order_amt    = order.get("order_amount")
+        print("7")
         order_cur    = order.get("order_currency")
+        print("8")
         p_status     = (payment.get("payment_status") or "").upper()
+        print("9")
         cf_payment_id= payment.get("cf_payment_id")
+        print("10")
         p_msg        = payment.get("payment_message")
+        print("11")
         if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
             print("Payment success webhook received")
         elif event_type == "PAYMENT_FAILED_WEBHOOK" or p_status == "FAILED":
             print("Payment failed webhook received")
+        print("12")
         return JsonResponse({"message": "Test Webhook received"}, status=200)
 @method_decorator(csrf_exempt, name="dispatch")
 class CashfreeWebhookView(View):
