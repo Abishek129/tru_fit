@@ -23,3 +23,19 @@ services:
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
+
+  celery_worker:
+    build: .
+    container_name: trufit-celery-worker
+    env_file: .env
+    command: celery -A trufit_backend worker -l info
+    # if you have an external Redis, this is enough;
+    # if Redis is another container, add: depends_on: [redis]
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    container_name: trufit-celery-beat
+    env_file: .env
+    command: celery -A trufit_backend beat -l info
+    restart: unless-stopped

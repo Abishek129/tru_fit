@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView, UserProfileView, TopClientsByPaymentMode, ClientCoachStatsView
 from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view, NotificationListView, NotificationEditView, NotificationView, EnquiryFormView
 from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,CashfreeWebhookView
-from .views import testimonial_list, testimonial_detail, payment_webhook
+from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -58,6 +58,9 @@ urlpatterns = [
     path('recent-clients/', TopClientsByPaymentMode.as_view(), name='top-clients'),
     path('enquiry/', EnquiryFormView.as_view(), name='enquiry-form'),
     path('stats/', ClientCoachStatsView.as_view(), name='stats'),
+
+    # =================== Test Celery Task ===================
+    path('run-simple-task/', run_simple_task, name='run-simple-task'),
     # =============== Payment Test Api ==============
     path('cashfree-payment-test/', CPaymentTestView.as_view(), name='cashfree-payment-test'),
 

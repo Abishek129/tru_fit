@@ -2433,3 +2433,15 @@ def testimonial_detail(request, pk):
 
     serializer = TestimonialSerializer(testimonial, context={'request': request})
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+from .tasks import simple_task
+
+@api_view(['GET'])
+def run_simple_task(request):
+    try:
+        result = simple_task.delay()
+        return JsonResponse({"task_id": result.id, "status": "Task submitted successfully."})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)  
+    

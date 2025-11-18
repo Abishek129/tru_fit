@@ -14,3 +14,19 @@ def delete_inactive_client_coaches():
     inactive = Clinet_Coach.objects.filter(us_revenue=None, inr_revenue=None)
     count, _ = inactive.delete()
     return f"{count} inactive client-coach relations deleted"   
+
+@shared_task
+def simple_task():
+    return "This is a simple test task."
+
+
+
+import logging
+logger = logging.getLogger(__name__)
+
+logger = logging.getLogger("ws")
+
+@shared_task
+def run_simple_task():
+    logger.info("Simple task is running.")
+    return "Simple task completed."

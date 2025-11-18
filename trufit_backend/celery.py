@@ -1,6 +1,8 @@
 import os
 from celery import Celery
 from celery.schedules import crontab
+from datetime import timedelta
+
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "trufit_backend.settings")
 
@@ -25,5 +27,8 @@ app.conf.beat_schedule = {
         "task": "admin_functions.tasks.delete_inactive_client_coaches", 
         "schedule": crontab(minute=0, hour=18),  
         }
+    ,
+
+
         
 }
