@@ -1,4 +1,5 @@
 .env
 /deploy/nginx.conf
+docker-compose.yml
 
 

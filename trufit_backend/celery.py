@@ -28,7 +28,10 @@ app.conf.beat_schedule = {
         "schedule": crontab(minute=0, hour=18),  
         }
     ,
-
+    "test-task-every-30-seconds": {
+        "task": "admin_functions.tasks.run_simple_task",
+        "schedule": timedelta(seconds=30),
+    },
 
         
 }

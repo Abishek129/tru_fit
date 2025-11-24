@@ -1556,6 +1556,7 @@ class ClinetCoachTableViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Clinet_Coach.objects.select_related("client", "coach").all()
     serializer_class = ClinetCoachTableSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -1606,7 +1607,7 @@ class ClientTableView(APIView):
     """
     API endpoint that returns all clients in a tabular format.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, start_date=None, end_date=None):
         if start_date and end_date:
@@ -1659,7 +1660,7 @@ from .models import Clinet_Coach
 from .serializers import CoachTableSerializer
 
 class CoachClientListView(generics.ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = CoachTableSerializer
 
     def get_queryset(self):
@@ -1686,6 +1687,7 @@ class CoachRevenueView(APIView):
     """
     API endpoint to return total US and INR revenue for a given coach.
     """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, coach_id):
         try:
@@ -1708,7 +1710,7 @@ from .models import Clinet_Coach
 from .serializers import CoachTableSerializer
 
 class CoachClientListView(generics.ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = CoachTableSerializer
 
     def get_queryset(self):
@@ -1820,7 +1822,7 @@ class NewSignupsDomesticView(APIView):
         or any time during a date window [start_date, end_date] if provided.
       - new_signups: domestic users whose start_date falls within the same point/date window.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
@@ -1849,7 +1851,7 @@ class NewSignupsDomesticView(APIView):
 
                 # New signups up to current_date (cumulative) — matches your prior behavior
                 # If you want only "signups ON that date", use start_date=current_date.
-                new_signups = qs.filter(start_date__lte=current_date).count()
+                new_signups = qs.filter(start_date=current_date).count()
 
                 return Response({
                     "total_active_users": total_active_users,
@@ -1904,7 +1906,7 @@ class NewSignupsIntView(APIView):
         or any time during a date window [start_date, end_date] if provided.
       - new_signups: domestic users whose start_date falls within the same point/date window.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
@@ -1926,13 +1928,14 @@ class NewSignupsIntView(APIView):
             if current_date:
                 # Active at current_date
                 active_filter = (
-                    Q(start_date__lte=current_date) 
+                    Q(start_date__lte=current_date) &
+                    (Q(end_date__isnull=True) | Q(end_date__gte=current_date))
                 )
                 total_active_users = qs.filter(active_filter).count()
 
                 # New signups up to current_date (cumulative) — matches your prior behavior
                 # If you want only "signups ON that date", use start_date=current_date.
-                new_signups = qs.filter(start_date__lte=current_date).count()
+                new_signups = qs.filter(start_date=current_date).count()
 
                 return Response({
                     "total_active_users": total_active_users,
@@ -2009,7 +2012,7 @@ class FinanceAmountByLocationView(APIView):
       - only end_date   -> (-∞, end_date]
       - neither         -> active today
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
@@ -2133,7 +2136,7 @@ from .serializers import LeadsSerializer
 
 
 class LeadCaptureView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = LeadsSerializer(data=request.data)
@@ -2145,13 +2148,13 @@ class LeadCaptureView(APIView):
 
 
 class LeadsListView(ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = LeadsSerializer
     queryset = Leads.objects.all().order_by('-created_at')
 
 
 class CoachCountView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         count = CoachProfile.objects.all().exclude(status="hard").count()
@@ -2175,7 +2178,7 @@ class TestImageViewSet(viewsets.ModelViewSet):
 
 
 class CoachCreateView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         #print(request.data)
@@ -2197,7 +2200,7 @@ def test_socket_view(request):
 
 
 class NotificationView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         flag = False
@@ -2208,7 +2211,7 @@ class NotificationView(APIView):
 
 
 class NotificationListView(ListAPIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
@@ -2224,7 +2227,7 @@ class NotificationListView(ListAPIView):
 
 
 class NotificationEditView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, notification_id):
         notification = Notification.objects.get(id=notification_id)
@@ -2247,7 +2250,7 @@ from .models import ClientDetails
 from .serializers import TopClientsSerializer
 
 class TopClientsByPaymentMode(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         recent_clients_ind = ClientDetails.objects.filter(payment_mode="cashfree").order_by('-created_date')[:5]
@@ -2301,7 +2304,7 @@ class ClientCoachStatsView(APIView):
         "end_date": "YYYY-MM-DD"
     }
     """
-
+    permission_classes = [IsAuthenticated]
     def _parse_date(self, s):
         if not s:
             return None
