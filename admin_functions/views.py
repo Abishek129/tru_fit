@@ -281,6 +281,120 @@ from decimal import Decimal, InvalidOperation
 import razorpay
 from django.conf import settings
 
+
+
+class TestRazorpay(APIView):
+    """
+    Creates a Razorpay Order in USD for a given client (ClientDetails).
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, client_id):
+        try:
+            client = get_object_or_404(ClientDetails)
+
+            print("working 1")
+            # Block repeat payments
+            if client.payment_status == "paid":
+                return Response({"error": "Payment already completed for this client."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            print("working 2")
+            # Pricing lookup (coach level + 'international' plan row)
+            #print(client.coach.coach_level, "coach level")
+            #coach_level = client.coach.coach_level   
+            #print(coach_level)     # 'junior' | 'senior' | 'elite'
+            #location = "international"
+            #cat = get_object_or_404(Category, coach_level=coach_level, location=location)
+            #print("working 3")
+            # Amount (3 or 6 months)
+            #if client.plan == 1:
+            #    plan = Plan.objects.get(category=cat, duration_weeks=None)
+            #    amount_dec = plan.price
+            #elif client.plan == 2:
+            #    plan = Plan.objects.get(category=cat, duration_weeks=12)
+            #    if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+            #        active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+            #        active_client.duration_weeks = 12
+            #        active_client.save()
+            #    else:
+            #        active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
+            #    if not plan:
+            #        return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
+            #    plan = Plan.objects.get(category=cat, duration_weeks=12)
+            #    amount_dec = plan.price
+            #elif client.plan == 3:
+            #    plan = Plan.objects.get(category=cat, duration_weeks=24)
+            #    if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+            #        active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+            #        active_client.duration_weeks = 12
+            #        active_client.save()
+            #    else:
+            #        active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
+                #if not 
+                #    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
+                #
+            #    amount_dec = plan.price
+                
+            #else:
+            #    return Response({"error": "Invalid plan.", "client_plan":client.plan}, status=status.HTTP_400_BAD_REQUEST)
+           
+            #print("working 4")
+            # Razorpay client from env settings
+            amount_dec = Decimal("1.00")  # fixed test amount
+            key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
+            key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
+            if not key_id or not key_secret:
+                return Response({"error": "Razorpay keys are not configured on the server."},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            rz_client = razorpay.Client(auth=(key_id, key_secret))
+            print("working 5")
+            # USD: 2 decimal places → cents
+            amount_minor = int((amount_dec * Decimal("100")).quantize(Decimal("1")))
+            print(amount_minor)
+
+            rz_order = rz_client.order.create({
+                "amount": amount_minor,
+                "currency": "USD",                     # USD-only
+                "receipt": f"client_test_",
+                "payment_capture": 1,
+                "notes": {
+                    "client_id": "111",
+                    "client_email": "test_email",
+                    "plan_months": "1",
+                    "coach_level": "test",
+                    "pricing_location": "test",
+                }
+            })
+
+            # (Optional) save rz_order["id"] for later verification
+            # client.razorpay_order_id = rz_order["id"]
+            # client.save(update_fields=["razorpay_order_id"])
+
+            return Response({
+                "razorpay_order_id": rz_order["id"],
+                "amount": rz_order["amount"],          # in cents
+                "currency": rz_order["currency"],      # "USD"
+                "key": key_id,
+                "client": {
+                    "id": "client.id",
+                    "name": "client.name",
+                    "email": "client.email",
+                    "phone_number": "client.phone_number",
+                    "plan": "test"
+                }
+            }, status=status.HTTP_200_OK)
+
+        except razorpay.errors.BadRequestError as e:
+            return Response({"error": "Razorpay BadRequestError", "details": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except (InvalidOperation, ValueError) as e:
+            return Response({"error": "Amount computation failed", "details": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Unexpected error", "details": str(e)},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class RPaymentInitializationView(APIView):
     """
     Creates a Razorpay Order in USD for a given client (ClientDetails).
@@ -337,6 +451,7 @@ class RPaymentInitializationView(APIView):
                 return Response({"error": "Invalid plan.", "client_plan":client.plan}, status=status.HTTP_400_BAD_REQUEST)
            
             print("working 4")
+            amount_dec = Decimal("1.00")  # fixed test amount
             # Razorpay client from env settings
             key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
             key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
@@ -1353,6 +1468,7 @@ class TestWebhookView(View):
 @method_decorator(csrf_exempt, name="dispatch")
 class CashfreeWebhookView(View):
     throttle_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         raw = request.body
