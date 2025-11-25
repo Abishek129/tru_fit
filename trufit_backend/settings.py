@@ -39,6 +39,9 @@ CORS_ALLOWED_ORIGINS = [
     "https://tru-fit.vercel.app",
     "https://www.betrufit.com",
     "https://betrufit.com",
+    "https://dashboard.betrufit.com",
+    "http://www.dashboard.betrufit.com",
+    "http://localhost:5173"
     # add others if needed:
     # "http://localhost:3000",
 ]
