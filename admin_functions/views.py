@@ -697,131 +697,168 @@ def payment_webhook_test(request):
         return HttpResponse("Payment captured", status=200)
     return HttpResponse("Unhandled event", status=200)
 
+import json
+import hmac
+import hashlib
+from decimal import Decimal
+
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
+# from rest_framework.response import Response  # <-- DO NOT use this here
+
+WEBHOOK_SECRET = "your_webhook_secret_here"
+
+
 @csrf_exempt
 def payment_webhook(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Invalid method")
+
     print("Webhook POST")
-    
-    raw_body = request.body.decode("utf-8")
-    print("body", raw_body)
-    print('headers', request.headers)
-    sig_received = request.headers.get("X-Razorpay-Signature")
+
+    raw_body = request.body  # bytes
+    body_str = raw_body.decode("utf-8")
+    print("body", body_str)
+    print("headers", request.headers)
+
+    sig_received = request.headers.get("X-Razorpay-Signature", "")
     print("signature received:", sig_received)
 
-    # ✅ Verify signature manually (always works)
+    # ✅ Verify signature
     expected = hmac.new(
         WEBHOOK_SECRET.encode(),
-        raw_body.encode(),
+        raw_body,                   # use bytes directly
         hashlib.sha256
     ).hexdigest()
 
     print("expected:", expected)
 
-    if not hmac.compare_digest(expected, sig_received):
+    if not hmac.compare_digest(expected, sig_received or ""):
         print("❌ Signature mismatch")
         return HttpResponseBadRequest("Invalid signature")
-    body = json.loads(request.body.decode("utf-8"))
-    payment = body["payload"]["payment"]["entity"]
-    payment_status = payment["status"]
-    client_id = payment["notes"].get("client_id")   
-    amount_paid = payment["amount"] / 100.0  # amount is in dollors
-    client_obj = get_object_or_404(ClientDetails, id=client_id)
 
     print("✅ Signature Verified")
+
+    try:
+        body = json.loads(body_str)
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON")
+
+    payment = body["payload"]["payment"]["entity"]
+    payment_status = payment["status"]
+    client_id = payment["notes"].get("client_id")
+    amount_paid = payment["amount"] / 100.0  # amount in currency units
+
+    client_obj = get_object_or_404(ClientDetails, id=client_id)
+
+    # ---- Payment failed ----
     if payment_status == "failed":
-        finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date', '-id').first()
-        active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+        finance = Finance_details.objects.filter(
+            client=client_obj, location="international"
+        ).order_by('-start_date', '-id').first()
+
+        active_client = Clinet_Coach.objects.get(
+            client=client_obj,
+            coach=client_obj.coach
+        )
+
         if not active_client.inr_revenue or not active_client.us_revenue:
-            del active_client
-            
-        del finance
-            #return JsonResponse({"ok": True}, status=200)
-        return Response({"message": "Payment failed"}, status=200)
+            # your logic here, `del` only deletes Python variable, not DB row
+            pass
+
+        return JsonResponse({"message": "Payment failed"}, status=200)
+
+    # ---- Payment captured ----
     if payment_status == "captured":
         if client_obj.payment_status != "paid":
             client_obj.payment_status = "paid"
-            
-            client_obj.save(update_fields=["payment_status"])
             client_obj.payment_date = timezone.now()
+            client_obj.save(update_fields=["payment_status", "payment_date"])
+
             if client_obj.plan != 1:
                 client_obj.active = True
-                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                client_obj.save(update_fields=["active"])
+
+                active_client = Clinet_Coach.objects.get(
+                    client=client_obj,
+                    coach=client_obj.coach
+                )
                 active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
-                
-                    
                 coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 coach_revenue_obj.save()
-                active_client.start_date = timezone.now() + timezone.timedelta(days=7)
-                #active_client.start_date = timezone.now() + 7 days
-                #active_client.end_date = active_client.start_date + relativedelta(months=client_obj.plan)
-                #active_client.end_date = active_client.start_date + timezone.timedelta(weeks=client_obj.plan*12)
 
+                active_client.start_date = timezone.now() + timezone.timedelta(days=7)
                 active_client.active = True
                 active_client.location = "international"
                 active_client.save()
-                #print(active_client)
             else:
-                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                active_client = Clinet_Coach.objects.filter(
+                    client=client_obj,
+                    coach=client_obj.coach
+                ).latest('start_date')
                 active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 active_client.location = "international"
                 active_client.save()
-                # ======================== delete client_coach if revenue is zero
-            finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date', '-id').first()                
+
+            finance = Finance_details.objects.filter(
+                client=client_obj,
+                location="international"
+            ).order_by('-start_date', '-id').first()
             finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(amount_paid))
+
             if client_obj.plan == 1:
                 finance.end_date = timezone.now()
-                send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: USD {amount_paid}")
+                send_test_message(
+                    f"New consultation call: {client_obj.name} ({client_obj.email}), "
+                    f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
+                )
                 Notification.objects.create(
-            
-                    message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
-                    
+                    message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. "
+                            f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
                 )
 
             elif client_obj.plan == 2:
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
-                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
-                send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: USD {amount_paid}")
-                Notification.objects.create(
-                    
-                    message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
-                    
+                active_client.save()
+                send_test_message(
+                    f"New 12 week plan: {client_obj.name} ({client_obj.email}), "
+                    f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
                 )
+                Notification.objects.create(
+                    message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. "
+                            f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
+                )
+
             elif client_obj.plan == 3:
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
-                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
-                send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: USD {amount_paid}")
-                Notification.objects.create(
-                    
-                    message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
-                    
+                active_client.save()
+                send_test_message(
+                    f"New 24 week plan: {client_obj.name} ({client_obj.email}), "
+                    f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
                 )
-            
+                Notification.objects.create(
+                    message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. "
+                            f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
+                )
+
             finance.save()
-            client_obj.save()
-                #print(active_client)
-  
-            #finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date', '-id').first()
-            finance.save()
-            client_obj.save()
 
-            return Response({"message": "Payment captured and client updated"}, status=200)
-        
-        return Response({"message": "Payment neither failed nor captured"}, status=200)
-    return Response({"message": "Payment status unhandled"}, status=200)    
-    
+            return JsonResponse(
+                {"message": "Payment captured and client updated"},
+                status=200
+            )
 
+        # already marked paid
+        return JsonResponse({"message": "Payment already processed"}, status=200)
 
-        
-
-    # ✅ Decode JSON
-    data = json.loads(raw_body)
-    event = data.get("event")
-
-    print("Webhook event:", event)
-
-    return HttpResponse(status=200)
+    # ---- Fallback ----
+    return JsonResponse({"message": "Payment status unhandled"}, status=200)
 
 
 from django.conf import settings
