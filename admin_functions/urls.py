@@ -76,7 +76,7 @@ urlpatterns = [
     path('testimonials-get/<int:pk>/', testimonial_detail, name='testimonial-detail'),
 
     # =================== Admin Tasks ===================
-    path('send-lead-emails/', SendLeadsEmailView.as_view(), name='send-lead-emails'),
+    path('leads/send-mail/', SendLeadsEmailView.as_view(), name='send-lead-emails'),
   
 
 ] 
