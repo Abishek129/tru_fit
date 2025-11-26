@@ -48,7 +48,7 @@ def send_plan_mail(client_name, client_email, plan_name, coach, amount, currency
 
 @shared_task
 def send_lead_mails(name, email):
-    subject = "Thanks for Connecting Tru Fit"
+    subject = "Thanks for Contacting Tru Fit"
 
     message = f"""
 Hi {name},
