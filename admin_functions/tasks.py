@@ -26,10 +26,6 @@ logger = logging.getLogger(__name__)
 
 logger = logging.getLogger("ws")
 
-@shared_task
-def run_simple_task():
-    logger.info("Simple task is running.")
-    return "Simple task completed."
 
 
 from django.core.mail import send_mail
@@ -47,4 +43,33 @@ def send_plan_mail(client_name, client_email, plan_name, coach, amount, currency
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[client_email],    
 
+    )
+
+
+@shared_task
+def send_lead_mails(name, email):
+    subject = "Thanks for Connecting Tru Fit"
+
+    message = f"""
+Hi {name},
+
+Thank you for reaching out to Tru Fit. Our support team will get in touch with you within 1–2 business days to understand your goals and answer any questions.
+
+In the meantime, you can explore our coaching options here:
+https://betrufit.com/findMyCoach
+
+You can also connect with us on Instagram for practical fitness advice and client results:
+Instagram: https://www.instagram.com/betrufit
+
+We look forward to becoming a part of your fitness journey.
+
+Warm regards,
+Team Tru Fit
+"""
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email],
     )

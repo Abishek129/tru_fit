@@ -374,8 +374,8 @@ EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = os.getenv("SES_SMTP_USER")
-EMAIL_HOST_PASSWORD = os.getenv("SES_SMTP_PASS")
+EMAIL_HOST_USER = os.getenv("AWS_SES_ACCESS_KEY_ID")
+EMAIL_HOST_PASSWORD = os.getenv("AWS_SES_SECRET_ACCESS_KEY")
 DEFAULT_FROM_EMAIL = "no-reply@betrufit.com"
 SERVER_EMAIL = "errors@betrufit.com"
 

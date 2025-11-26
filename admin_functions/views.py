@@ -710,7 +710,7 @@ from django.utils import timezone
 # from rest_framework.response import Response  # <-- DO NOT use this here
 
 WEBHOOK_SECRET = "your_webhook_secret_here"
-from tasks import send_plan_mail
+from .tasks import send_plan_mail
 
 @csrf_exempt
 def payment_webhook(request):
@@ -2295,7 +2295,7 @@ from .serializers import LeadsSerializer
 
 
 class LeadCaptureView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LeadsSerializer(data=request.data)
@@ -2433,10 +2433,10 @@ class EnquiryFormView(APIView):
         goal = request.data.get("goal")
 
         send_mail(
-            message=f"New enquiry from {name}\nEmail: {email}\nPhone: {phone_number}\nGoal: {goal}",
+            message=f"New enquiry from {name} : {email}\nPhone: {phone_number}\nGoal: {goal}",
             subject="New Enquiry Form Submission",
-            recipient_list=["abishek.reddy.020502@gmail.com"],
-            from_email="abishek.reddy.020502@gmail.com",
+            recipient_list=["support@betrufit.com"],
+            from_email="no-reply@betrufit.com",
         
         )
         return Response({"detail": "Enquiry submitted."}, status=status.HTTP_201_CREATED)
@@ -2597,7 +2597,7 @@ def testimonial_detail(request, pk):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-from .tasks import simple_task
+from .tasks import simple_task, send_lead_mails
 
 @api_view(['GET'])
 def run_simple_task(request):
@@ -2607,3 +2607,21 @@ def run_simple_task(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)  
     
+
+
+class SendLeadsEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        lead_ids = request.data.get("lead_ids", [])
+        for id in lead_ids:
+            lead = Leads.objects.get(id=id)
+            if not lead:
+                print(f"Lead with id {id} not found.")
+                continue
+            try:
+                send_lead_mails.delay(lead.name, lead.email)
+            except Exception as e:
+                print(f"Error sending email for lead {id}: {str(e)}")
+        return Response({"detail": "Email tasks submitted."}, status=status.HTTP_200_OK)
+
