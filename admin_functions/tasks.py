@@ -30,3 +30,21 @@ logger = logging.getLogger("ws")
 def run_simple_task():
     logger.info("Simple task is running.")
     return "Simple task completed."
+
+
+from django.core.mail import send_mail
+
+from django.conf import settings
+
+@shared_task
+def send_plan_mail(client_name, client_email, plan_name, coach, amount, currency):
+    from django.core.mail import send_mail
+    subject = "Your Plan Purchase Confirmation"
+    message = f"Thank you {client_name} for purchasing the {plan_name} with {coach} for {amount} {currency}."
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[client_email],    
+
+    )

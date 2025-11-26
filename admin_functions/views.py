@@ -451,7 +451,7 @@ class RPaymentInitializationView(APIView):
                 return Response({"error": "Invalid plan.", "client_plan":client.plan}, status=status.HTTP_400_BAD_REQUEST)
            
             print("working 4")
-            amount_dec = Decimal("1.00")  # fixed test amount
+            #amount_dec = Decimal("1.00")  # fixed test amount
             # Razorpay client from env settings
             key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
             key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
@@ -710,7 +710,7 @@ from django.utils import timezone
 # from rest_framework.response import Response  # <-- DO NOT use this here
 
 WEBHOOK_SECRET = "your_webhook_secret_here"
-
+from tasks import send_plan_mail
 
 @csrf_exempt
 def payment_webhook(request):
@@ -812,6 +812,7 @@ def payment_webhook(request):
 
             if client_obj.plan == 1:
                 finance.end_date = timezone.now()
+                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="consultation call", amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New consultation call: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -825,6 +826,7 @@ def payment_webhook(request):
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                 active_client.save()
+                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="12 weeks plan", amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New 12 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -838,6 +840,7 @@ def payment_webhook(request):
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                 active_client.save()
+                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="24 weeks plan", amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New 24 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -1593,6 +1596,7 @@ class CashfreeWebhookView(View):
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
                     finance.end_date = timezone.now()
+                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="consultaion call", amount=order_amt, currency="INR")
                     send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
                 
@@ -1604,6 +1608,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
+                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="12 weeks plan", amount=order_amt, currency="INR")
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
                         
@@ -1614,6 +1619,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
+                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="24 weeks plan", amount=order_amt, currency="INR")
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
                         

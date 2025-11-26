@@ -369,7 +369,17 @@ AWS_SES_SECRET_ACCESS_KEY = os.getenv("AWS_SES_SECRET_ACCESS_KEY")
 AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME", "ap-south-1")
 AWS_SES_REGION_ENDPOINT = f"email.{AWS_SES_REGION_NAME}.amazonaws.com"
 
-DEFAULT_FROM_EMAIL = "abishek.129.203@gmail.com"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = os.getenv("SES_SMTP_USER")
+EMAIL_HOST_PASSWORD = os.getenv("SES_SMTP_PASS")
+DEFAULT_FROM_EMAIL = "no-reply@betrufit.com"
+SERVER_EMAIL = "errors@betrufit.com"
+
+#DEFAULT_FROM_EMAIL = "noreply@betrufit.com"
 
 
   # must be the verified email
