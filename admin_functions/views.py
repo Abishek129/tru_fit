@@ -2626,3 +2626,17 @@ class SendLeadsEmailView(APIView):
                 print(f"Error sending email for lead {id}: {str(e)}")
         return Response({"detail": "Email tasks submitted."}, status=status.HTTP_200_OK)
 
+
+#def send_plan_mail(client_name, client_email, plan_name, coach, amount, currency):
+
+
+class testMailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        send_test_message(f"New 24 week plan:   Coach: , Amount: INR ")
+
+        send_plan_mail(client_name="John Doe",client_email="abishek.reddy.020502@gmail.com", plan_name="Premium Plan", coach="Coach A", amount="99.99", currency="USD")
+
+        return Response({"detail": "Test plan mail sent."}, status=status.HTTP_200_OK)
+    

@@ -4,7 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import CBuyNowAPIView, CPaymentInitializationView, CPaymentVerificationView, CPaymentWebhookView, CashfreeWebhookView, SignupView, LoginView, AdminLoginView, RefreshView, LogoutView, CategoryViewSet, ClinetCoachTableViewSet, TestEmailView, ClientTableView, CoachClientListView, UserProfileView, TopClientsByPaymentMode, ClientCoachStatsView
 from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , NewSignupsDomesticView, CoachSummaryView, NewSignupsIntView , FinanceAmountByLocationView, CoachMiniListView, CoachStatusUpdateView, LeadsListView, LeadCaptureView, CoachCountView, TestImageViewSet, CoachCreateView, test_socket_view, NotificationListView, NotificationEditView, NotificationView, EnquiryFormView
 from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,CashfreeWebhookView, SendLeadsEmailView
-from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task , payment_webhook_test
+
+from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task , payment_webhook_test, testMailView
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -66,7 +67,7 @@ urlpatterns = [
 
     # =============== Webhook Apis ==================
     path('payment-webhook-test/', payment_webhook_test, name='payment-webhook-razorpay-test'),
-    path('test-cashfree-webhook/', CashfreeWebhookView.as_view(), name='test-webhook'),
+    #('test-cashfree-webhook/', CashfreeWebhookView.as_view(), name='test-webhook'),
     path('paymenthandler/', payment_webhook, name='paymenthandler'),
     path("cashfree-webhook2/",CashfreeWebhookView.as_view(), name = 'webhook'),
     # =============== Client's Apis ==============
@@ -74,6 +75,7 @@ urlpatterns = [
     path('coach-profiles/<int:coach_id>/', coach_profile_detail, name='coach-profile-detail'),
     path('testimonials-get/', testimonial_list, name='testimonial-list'),
     path('testimonials-get/<int:pk>/', testimonial_detail, name='testimonial-detail'),
+    path('test-mail-view/', testMailView.as_view(), name='test-mail-view'),
 
     # =================== Admin Tasks ===================
     path('leads/send-mail/', SendLeadsEmailView.as_view(), name='send-lead-emails'),
