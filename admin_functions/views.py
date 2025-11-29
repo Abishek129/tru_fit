@@ -1997,7 +1997,7 @@ class NewSignupsDomesticView(APIView):
             end_date = parse_d(end_date_str)
             current_date = parse_d(current_date_str)
 
-            qs = Finance_details.objects.filter(location="domestic")
+            qs = Finance_details.objects.filter(location="domestic").exclude(client__plan=1)
 
             # Point-in-time mode (current_date provided)
             if current_date:
@@ -2081,7 +2081,8 @@ class NewSignupsIntView(APIView):
             end_date = parse_d(end_date_str)
             current_date = parse_d(current_date_str)
 
-            qs = Finance_details.objects.filter(location="international")
+            qs = Finance_details.objects.filter(location="international").exclude(client__plan=1)
+
 
             # Point-in-time mode (current_date provided)
             if current_date:
