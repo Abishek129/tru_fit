@@ -812,7 +812,7 @@ def payment_webhook(request):
 
             if client_obj.plan == 1:
                 finance.end_date = timezone.now()
-                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="consultation call", amount=amount_paid, currency="USD")
+                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultation call", amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New consultation call: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -826,7 +826,7 @@ def payment_webhook(request):
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                 active_client.save()
-                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="12 weeks plan", amount=amount_paid, currency="USD")
+                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New 12 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -840,7 +840,7 @@ def payment_webhook(request):
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                 active_client.save()
-                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="24 weeks plan", amount=amount_paid, currency="USD")
+                send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New 24 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -1608,7 +1608,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
-                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="12 weeks plan", amount=order_amt, currency="INR")
+                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
                         
@@ -1619,7 +1619,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
-                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="24 weeks plan", amount=order_amt, currency="INR")
+                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     Notification.objects.create(
                         
