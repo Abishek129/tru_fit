@@ -809,7 +809,7 @@ def payment_webhook(request):
                 location="international"
             ).order_by('-start_date', '-id').first()
             finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(amount_paid))
-
+            finance.payment_status = "paid"
             if client_obj.plan == 1:
                 finance.end_date = timezone.now()
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultation call", amount=amount_paid, currency="USD")
@@ -1602,6 +1602,7 @@ class CashfreeWebhookView(View):
                     # ======================== delete client_coach if revenue is zero
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
+                finance.payment_status = "paid"
                 if client_obj.plan == 1:
                     print("Consultation plan processing")
                     finance.end_date = timezone.now()
@@ -2021,7 +2022,7 @@ class NewSignupsDomesticView(APIView):
             end_date = parse_d(end_date_str)
             current_date = parse_d(current_date_str)
 
-            qs = Finance_details.objects.filter(location="domestic").exclude(client__plan=1)
+            qs = Finance_details.objects.filter(location="domestic", payment_staus= "paid").exclude(client__plan=1)
 
             # Point-in-time mode (current_date provided)
             if current_date:
@@ -2540,7 +2541,7 @@ class ClientCoachStatsView(APIView):
 
         # 5. Range queries
         new_signups = ClientDetails.objects.filter(
-            payment_mode=payment_mode, payment_staus="paid",
+            payment_mode=payment_mode, payment_status="paid",
             created_date__date__gte=start_date,
             created_date__date__lte=end_date,
         ).count()
