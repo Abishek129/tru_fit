@@ -1606,7 +1606,7 @@ class CashfreeWebhookView(View):
                     print("Consultation plan processing")
                     finance.end_date = timezone.now()
                     print("Finance end date set to now for consultation plan")
-                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="consultaion call", amount=order_amt, currency="INR")
+                    #send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="consultaion call", amount=order_amt, currency="INR")
                     print("Plan mail sent for consultation")
                     send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     print("Test message sent for consultation")
@@ -1623,7 +1623,7 @@ class CashfreeWebhookView(View):
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                     print("Active client end date set for 12 weeks plan")
-                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
+                    #send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
                     print("Plan mail sent for 12 weeks plan")
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     print("Test message sent for 12 weeks plan")
@@ -1641,7 +1641,7 @@ class CashfreeWebhookView(View):
                     print("Active client fetched for 24 weeks plan")
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                     print("Active client end date set for 24 weeks plan")
-                    send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
+                    #send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
                     print("Plan mail sent for 24 weeks plan")
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     print("Test message sent for 24 weeks plan")
@@ -2663,4 +2663,16 @@ class testMailView(APIView):
         send_plan_mail(client_name="John Doe",client_email="abishek.reddy.020502@gmail.com", plan_name="Premium Plan", coach="Coach A", amount="99.99", currency="USD")
 
         return Response({"detail": "Test plan mail sent."}, status=status.HTTP_200_OK)
+    
+
+class NotificationTestView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        Notification.objects.create(
+                
+                        message=" booked a consultation call. Coach:"
+                        
+                    )
+        return Response({"detail": "Test notification created."}, status=status.HTTP_200_OK)
     

@@ -12,6 +12,7 @@ admin.site.register(Category)
 admin.site.register(CoachCertification)
 admin.site.register(TestImage)
 admin.site.register(CoachRevenue)
+admin.site.register(Notification)
 
 
 
