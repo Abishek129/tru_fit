@@ -2540,7 +2540,7 @@ class ClientCoachStatsView(APIView):
 
         # 5. Range queries
         new_signups = ClientDetails.objects.filter(
-            payment_mode=payment_mode,
+            payment_mode=payment_mode, payment_staus="paid",
             created_date__date__gte=start_date,
             created_date__date__lte=end_date,
         ).count()

@@ -385,12 +385,18 @@ class Finance_details(models.Model):
     client = models.ForeignKey(ClientDetails, on_delete=models.SET_NULL, related_name='finance_details', null=True)
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid')
+    ]
     LOCATION_CHOICES = [
         ('domestic',      'DOMESTIC'),
         ('international', 'INTERNATIONAL'),
     ]
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    
     
 
     def __str__(self):
