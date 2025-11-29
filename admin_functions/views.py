@@ -1565,17 +1565,25 @@ class CashfreeWebhookView(View):
         if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
             if client_obj and getattr(client_obj, "payment_status", None) != "paid":
                 client_obj.payment_status = "paid"
-                
+                print("Client marked as paid")
                 client_obj.save(update_fields=["payment_status"])
+                print("Client saved after marking paid")
                 client_obj.payment_date = timezone.now()
+                print("Payment date set")
                 if client_obj.plan != 1:
+                    print("Non-consultation plan processing")
+
                     client_obj.active = True
+                    print("Client set to active")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+
                     active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
+                    print("Active client revenue updated")
                     coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                     
                         
                     coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
+                    print("Coach revenue updated")
                     coach_revenue_obj.save()
                     active_client.start_date = timezone.now() + timezone.timedelta(days=7)
                     #active_client.start_date = timezone.now() + 7 days
@@ -1595,38 +1603,54 @@ class CashfreeWebhookView(View):
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 if client_obj.plan == 1:
+                    print("Consultation plan processing")
                     finance.end_date = timezone.now()
+                    print("Finance end date set to now for consultation plan")
                     send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="consultaion call", amount=order_amt, currency="INR")
+                    print("Plan mail sent for consultation")
                     send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
+                    print("Test message sent for consultation")
                     Notification.objects.create(
                 
                         message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
                         
                     )
-
+                    print("Notification created for consultation")
                 elif client_obj.plan == 2:
+                    print("12 weeks plan processing")
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                    print("Finance end date set for 12 weeks plan")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
+                    print("Active client end date set for 12 weeks plan")
                     send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
+                    print("Plan mail sent for 12 weeks plan")
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
+                    print("Test message sent for 12 weeks plan")
                     Notification.objects.create(
                         
                         message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
                         
                     )
+                    print("Notification created for 12 weeks plan")
                 elif client_obj.plan == 3:
+                    print("24 weeks plan processing")
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                    print("Finance end date set for 24 weeks plan")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                    print("Active client fetched for 24 weeks plan")
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
+                    print("Active client end date set for 24 weeks plan")
                     send_plan_mail(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
+                    print("Plan mail sent for 24 weeks plan")
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
+                    print("Test message sent for 24 weeks plan")
                     Notification.objects.create(
                         
                         message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
                         
                     )
-                
+                    print("Notification created for 24 weeks plan")
                 finance.save()
                 client_obj.save()
                 log.info("Client %s marked PAID (amount=%s %s, cf_payment_id=%s)",
@@ -2371,7 +2395,7 @@ class NotificationView(APIView):
 
 
 class NotificationListView(ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
