@@ -68,7 +68,7 @@ urlpatterns = [
     # =============== Webhook Apis ==================
     path('payment-webhook-test/', payment_webhook_test, name='payment-webhook-razorpay-test'),
     #('test-cashfree-webhook/', CashfreeWebhookView.as_view(), name='test-webhook'),
-    path('paymenthandler/', payment_webhook, name='paymenthandler'),
+    path('paymenthandler2/', payment_webhook, name='paymenthandler'),
     path("cashfree-webhook2/",CashfreeWebhookView.as_view(), name = 'webhook'),
     # =============== Client's Apis ==============
     path('coach-profiles/', coach_profile_list, name='coach-profile-list'),
