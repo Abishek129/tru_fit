@@ -2547,7 +2547,7 @@ class ClientCoachStatsView(APIView):
         ).count()
         print(start_date, end_date, new_signups)
         active_clients = Clinet_Coach.objects.filter(
-            location=location
+            location=location, active=True
         ).filter(
             Q(start_date__lte=end_date) &
             (
