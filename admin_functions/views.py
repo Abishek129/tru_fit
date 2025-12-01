@@ -2106,7 +2106,7 @@ class NewSignupsIntView(APIView):
             end_date = parse_d(end_date_str)
             current_date = parse_d(current_date_str)
 
-            qs = Finance_details.objects.filter(location="international").exclude(client__plan=1)
+            qs = Finance_details.objects.filter(location="international", payment_staus="paid").exclude(client__plan=1)
 
 
             # Point-in-time mode (current_date provided)
