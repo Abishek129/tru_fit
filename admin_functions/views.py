@@ -902,7 +902,7 @@ class CBuyNowAPIView(APIView):
                 )
 
             print(client.phone_number, "testing before")         
-            finace_details = Finance_details.objects.create(client=client, location="domestic", payemnt_satus="pending")
+            finace_details = Finance_details.objects.create(client=client, location="domestic", payment_satus="pending")
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
 
