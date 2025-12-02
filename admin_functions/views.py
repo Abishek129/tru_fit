@@ -1172,6 +1172,7 @@ class CPaymentInitializationView(APIView):
                 "order_amount": order_amount,
                 "order_currency": order_currency,
                 "customer_details": {
+                    "customer_name": client.name ,
                     "customer_id": str(client.id),
                     "customer_email": client.email or "noemail@example.com",
                     "customer_phone": (client.phone_number or "").strip()[:15],
