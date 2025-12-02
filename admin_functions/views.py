@@ -795,14 +795,7 @@ def payment_webhook(request):
                 active_client.active = True
                 active_client.location = "international"
                 active_client.save()
-            else:
-                active_client = Clinet_Coach.objects.filter(
-                    client=client_obj,
-                    coach=client_obj.coach
-                ).latest('start_date')
-                active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
-                active_client.location = "international"
-                active_client.save()
+            
 
             finance = Finance_details.objects.filter(
                 client=client_obj,
@@ -1603,11 +1596,7 @@ class CashfreeWebhookView(View):
                     active_client.location = "domestic"
                     active_client.save()
                     #print(active_client)
-                else:
-                    active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
-                    active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
-                    active_client.location = "domestic"
-                    active_client.save()
+                    print("Active client saved")
                     # ======================== delete client_coach if revenue is zero
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
