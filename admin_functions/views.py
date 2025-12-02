@@ -1604,7 +1604,7 @@ class CashfreeWebhookView(View):
                     active_client.save()
                     #print(active_client)
                 else:
-                    active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
+                    active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     active_client.location = "domestic"
                     active_client.save()
