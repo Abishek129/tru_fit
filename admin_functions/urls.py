@@ -59,6 +59,7 @@ urlpatterns = [
     path('recent-clients/', TopClientsByPaymentMode.as_view(), name='top-clients'),
     path('enquiry/', EnquiryFormView.as_view(), name='enquiry-form'),
     path('stats/', ClientCoachStatsView.as_view(), name='stats'),
+    
 
     # =================== Test Celery Task ===================
     path('run-simple-task/', run_simple_task, name='run-simple-task'),

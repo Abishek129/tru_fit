@@ -1158,7 +1158,15 @@ class CPaymentInitializationView(APIView):
             print(client.phone_number)
             # Make a unique order_id for Cashfree (must be unique per order)
             order_id = f"client_{client.id}_{int(time.time())}"
+            
             print(order_id, "order id")
+            if client.plan == 1:
+                sub = "Consultation Call"
+            elif client.plan == 2:
+                sub = "12 Weeks Plan"
+            else:
+                sub = "24 Weeks Plan"
+            
             payload = {
                 "order_id": order_id,
                 "order_amount": order_amount,
@@ -1170,7 +1178,7 @@ class CPaymentInitializationView(APIView):
                 },
                 # Optional: show success page and/or have Cashfree call this notify URL
                 
-                "order_note": f"Plan {client.plan} months | Coach: {coach_level} | Loc: {location}",
+                "order_note": f"Plan {sub} | Client_name: {client.name} | Coach: {coach_level} | Coach_name: {client.coach.name} Loc: {location}",
             }
             print(payload, "payload")   
             url = f"{cf_base_url()}/orders"
