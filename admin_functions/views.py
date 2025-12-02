@@ -1605,7 +1605,7 @@ class CashfreeWebhookView(View):
                     print("Consultation plan processing")
                     finance.end_date = timezone.now()
                     print("Finance end date set to now for consultation plan")
-                    send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan="consultaion call", amount=order_amt, currency="INR")
+                    send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultaion call", amount=order_amt, currency="INR")
                     print("Plan mail sent for consultation")
                     send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     print("Test message sent for consultation")
