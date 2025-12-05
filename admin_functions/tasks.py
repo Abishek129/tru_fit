@@ -45,27 +45,42 @@ def send_plan_mail(client_name, client_email, plan_name, coach, amount, currency
         recipient_list=[client_email],    
 
     )
-
+from django.utils.html import strip_tags
 
 @shared_task
 def send_lead_mails(name, email):
     subject = "Thanks for Contacting Tru Fit"
 
-    message = f"""
-Hi {name},
-Thank you for reaching out to Tru Fit! 
-Our support team will be in touch within 1–2 business days to understand your goals and answer any questions you have.
-In the meantime, feel free to browse our website to learn more about what we do. You can check out our Coaches page to explore the different professionals you might work with, and visit our About page to get to know our company’s story and values.
-Also, don't forget to follow us on Instagram for practical fitness advice, updates, and a look at our client transformations: https://www.instagram.com/betrufit
-We look forward to becoming a part of your fitness journey!
-Warm regards,
-Team Tru Fit
+    html_message = f"""
+    <html>
+    <body>
+        <p>Hi {name},</p>
 
-"""
+        <p>Thank you for reaching out to Tru Fit!</p>
+
+        <p>Our support team will be in touch within 1–2 business days to understand your goals and answer any questions you have.</p>
+
+        <p>In the meantime, feel free to browse our website to learn more about what we do. You can check out our
+        <a href="https://betrufit.com/coaches" style="color: #06f; text-decoration: underline;">Coaches page</a>
+        to explore the different professionals you might work with, and visit our
+        <a href="https://betrufit.com/about" style="color: #06f; text-decoration: underline;">About page</a>
+        to get to know our company's story and values.</p>
+
+        <p>Also, don't forget to follow us on Instagram for practical fitness advice, updates, and a look at our client transformations:
+        <a href="https://www.instagram.com/betrufit" style="color: #06f; text-decoration: underline;">https://www.instagram.com/betrufit</a></p>
+
+        <p>We look forward to becoming a part of your fitness journey!</p>
+    </body>
+    </html>
+    """
+
+    # Fallback plain-text version (required by send_mail)
+    message = strip_tags(html_message)
 
     send_mail(
         subject=subject,
         message=message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[email],
+        html_message=html_message,
     )
