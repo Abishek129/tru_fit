@@ -53,19 +53,14 @@ def send_lead_mails(name, email):
 
     message = f"""
 Hi {name},
-
-Thank you for reaching out to Tru Fit. Our support team will get in touch with you within 1–2 business days to understand your goals and answer any questions.
-
-In the meantime, you can explore our coaching options here:
-https://betrufit.com/findMyCoach
-
-You can also connect with us on Instagram for practical fitness advice and client results:
-Instagram: https://www.instagram.com/betrufit
-
-We look forward to becoming a part of your fitness journey.
-
+Thank you for reaching out to Tru Fit! 
+Our support team will be in touch within 1–2 business days to understand your goals and answer any questions you have.
+In the meantime, feel free to browse our website to learn more about what we do. You can check out our Coaches page to explore the different professionals you might work with, and visit our About page to get to know our company’s story and values.
+Also, don't forget to follow us on Instagram for practical fitness advice, updates, and a look at our client transformations: https://www.instagram.com/betrufit
+We look forward to becoming a part of your fitness journey!
 Warm regards,
 Team Tru Fit
+
 """
 
     send_mail(
