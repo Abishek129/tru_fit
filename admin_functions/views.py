@@ -2332,10 +2332,46 @@ class LeadCaptureView(APIView):
 
 
 
-class LeadsListView(ListAPIView):
+class LeadsListView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = LeadsSerializer
-    queryset = Leads.objects.all().order_by('-created_at')
+
+    def post(self, request, *args, **kwargs):
+
+        queryset = Leads.objects.all().order_by('-created_at')
+
+        date = request.data.get('date')
+        start_date = request.data.get('start_date')
+        end_date = request.data.get('end_date')
+        date_format = "%Y-%m-%d"
+
+        if date and (start_date or end_date):
+            raise ValidationError("Use either 'date' or 'start_date/end_date', not both.")
+
+        # ---- Single Date ----
+        if date:
+            try:
+                d = datetime.strptime(date, date_format).date()
+            except ValueError:
+                raise ValidationError("date must be in YYYY-MM-DD format.")
+            queryset = queryset.filter(created_at__date=d)
+
+        # ---- Date Range ----
+        if start_date:
+            try:
+                sd = datetime.strptime(start_date, date_format).date()
+            except ValueError:
+                raise ValidationError("start_date must be in YYYY-MM-DD format.")
+            queryset = queryset.filter(created_at__date__gte=sd)
+
+        if end_date:
+            try:
+                ed = datetime.strptime(end_date, date_format).date()
+            except ValueError:
+                raise ValidationError("end_date must be in YYYY-MM-DD format.")
+            queryset = queryset.filter(created_at__date__lte=ed)
+
+        serializer = LeadsSerializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class CoachCountView(APIView):
