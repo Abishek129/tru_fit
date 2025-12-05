@@ -441,6 +441,8 @@ class SignupSerializer(serializers.ModelSerializer):
     
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed
+
+
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Your custom User has USERNAME_FIELD = "email"

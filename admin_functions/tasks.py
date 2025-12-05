@@ -12,6 +12,7 @@ def deactivate_expired_client_coaches():
 @shared_task
 def delete_inactive_client_coaches():
     inactive = Clinet_Coach.objects.filter(us_revenue=None, inr_revenue=None)
+    
     count, _ = inactive.delete()
     return f"{count} inactive client-coach relations deleted"   
 
