@@ -70,6 +70,9 @@ def send_lead_mails(name, email):
         <a href="https://www.instagram.com/betrufit" style="color: #06f; text-decoration: underline;">https://www.instagram.com/betrufit</a></p>
 
         <p>We look forward to becoming a part of your fitness journey!</p>
+
+        <p>Best regards,</p>
+        <p>Tru Fit Team</p>
     </body>
     </html>
     """
