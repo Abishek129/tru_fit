@@ -2105,6 +2105,8 @@ class NewSignupsIntView(APIView):
             current_date = parse_d(current_date_str)
 
             qs = Finance_details.objects.filter(location="international", payment_status="paid")
+            qsA = Clinet_Coach.objects.filter(location="international", active = True)
+
 
 
             # Point-in-time mode (current_date provided)
@@ -2114,7 +2116,7 @@ class NewSignupsIntView(APIView):
                     Q(start_date__lte=current_date) &
                     (Q(end_date__isnull=True) | Q(end_date__gte=current_date))
                 )
-                total_active_users = qs.filter(active_filter).count()
+                total_active_users = qsA.filter(active_filter).count()
 
                 # New signups up to current_date (cumulative) — matches your prior behavior
                 # If you want only "signups ON that date", use start_date=current_date.
@@ -2138,7 +2140,7 @@ class NewSignupsIntView(APIView):
                     Q(start_date__lte=today) &
                     (Q(end_date__isnull=True) | Q(end_date__gte=today))
                 )
-                total_active_users = qs.filter(active_filter).count()
+                total_active_users = qsA.filter(active_filter).count()
                 new_signups = qs.filter(start_date__lte=today).count()
                 return Response({
                     "total_active_users": total_active_users,
@@ -2150,7 +2152,7 @@ class NewSignupsIntView(APIView):
                 Q(start_date__lte=end_date) &
                 (Q(end_date__isnull=True) | Q(end_date__gte=start_date))
             )
-            total_active_users = qs.filter(overlap).count()
+            total_active_users = qsA.filter(overlap).count()
 
             # New signups within window (inclusive)
             new_signups = qs.filter(start_date__gte=start_date, start_date__lte=end_date).count()
