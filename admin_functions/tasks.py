@@ -71,7 +71,7 @@ def send_lead_mails(name, email):
 
         <p>We look forward to becoming a part of your fitness journey!</p>
 
-        <p>Best regards,</p>
+        <p>Warm regards,</p>
         <p>Tru Fit Team</p>
     </body>
     </html>
