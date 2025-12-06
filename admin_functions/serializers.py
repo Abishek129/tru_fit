@@ -610,12 +610,15 @@ from .models import Leads
 class LeadsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Leads
-        fields = ['id', 'name', 'email', 'phone_number', 'messaged', 'created_at']
-        read_only_fields = [ 'created_at']
+        fields = ...
         extra_kwargs = {
-            'messaged': {'default': False},
-        } 
-        
+            'email': {'validators': []},  
+        }
+
+    def validate_email(self, value):
+        if Leads.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Lead with this email already exists.")
+        return value
 
 
 import uuid
