@@ -7,7 +7,7 @@ from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,Ca
 
 from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task , payment_webhook_test, testMailView
 from .views import CoachClientView, CoachRevenueChangeView
-from .views import ClientCheck2View
+from .views import ClientCheck2View, FinanceCheck
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -17,7 +17,8 @@ router.register(r'certifications', CoachCertificationViewSet, basename='coachcer
 router.register(r"plans", PlansViewSet, basename= "plans")
 router.register(r"client_coach_change", CoachClientView, basename='client_coach_change')
 router.register(r"coach_revenue_adjust", CoachRevenueChangeView, basename='coach_revnue_change')
-router.register(r'client-coach', ClinetCoachTableViewSet, basename='client-coach')  
+router.register(r'client-coach', ClinetCoachTableViewSet, basename='client-coach')
+router.register(r'finance_update', FinanceCheck, basename="finance_update")  
 urlpatterns = [
     path("", include(router.urls)),
     path("location/", location_view, name = "location"),

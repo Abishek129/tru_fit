@@ -2798,3 +2798,12 @@ class CoachRevenueChangeView(viewsets.ModelViewSet):
     queryset = CoachRevenue.objects.all()
     serializer_class = CoachRevenueSerializer
     parser_classes = [MultiPartParser, FormParser]
+
+
+
+class FinanceCheck(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
+    query = Finance_details.objects.all()
+    serializer_class = FinancialReportSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    
