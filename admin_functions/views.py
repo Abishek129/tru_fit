@@ -4,7 +4,7 @@ from .utils import send_test_message
 
 # admin_functions/views.py
 from rest_framework import viewsets, permissions, status
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Blog, Testimonial, CoachProfile, CoachCertification, ClientDetails, Plan, Category, Clinet_Coach, CoachRevenue, Finance_details
 from .serializers import BlogSerializer, TestimonialSerializer, CoachProfileSerializer, CoachCertificationSerializer, ClientDetailsSerializer, PlansSerializer, ClientDetailsSerializer, CategorySerializer, ClinetCoachTableSerializer, ClientTableSerializer, CoachMiniSerializer
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -2805,5 +2805,4 @@ class FinanceCheck(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     query = Finance_details.objects.all()
     serializer_class = FinancialReportSerializer
-    parser_classes = [MultiPartParser, FormParser]
-    
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
