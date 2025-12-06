@@ -615,10 +615,15 @@ class LeadsSerializer(serializers.ModelSerializer):
             'email': {'validators': []},  
         }
 
-    def validate_email(self, value):
-        if Leads.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Lead with this email already exists.")
-        return value
+    def create(self, validated_data):
+        email = validated_data.get('email')
+
+        # If a lead with this email exists, update it instead of creating a new one
+        lead, created = Leads.objects.update_or_create(
+            email=email,
+            defaults=validated_data,  # name, phone_number, messaged, etc.
+        )
+        return lead
 
 
 import uuid
