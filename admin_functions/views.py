@@ -438,7 +438,7 @@ class RPaymentInitializationView(APIView):
                 plan = Plan.objects.get(category=cat, duration_weeks=24)
                 if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
                     active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
-                    active_client.duration_weeks = 12
+                    active_client.duration_weeks = 24
                     active_client.save()
                 else:
                     active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
