@@ -2543,6 +2543,14 @@ class ClientsCheckView(APIView):
         return Response ({
             "clients": serializers.data
         })
+    
+from .serializers import FinancialReportSerializer
+class ClientCheck2View(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        finance_details = Finance_details.objects.all()
+        serializers = FinancialReportSerializer(finance_details, many = True)
 
 class EnquiryFormView(APIView):
     permission_classes = [AllowAny]
