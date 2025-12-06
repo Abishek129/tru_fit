@@ -610,7 +610,7 @@ from .models import Leads
 class LeadsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Leads
-        fields = ...
+        fields = ['id', 'name', 'email', 'phone_number', 'messaged', 'created_at']
         extra_kwargs = {
             'email': {'validators': []},  
         }
