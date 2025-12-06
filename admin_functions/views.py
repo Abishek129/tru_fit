@@ -2725,7 +2725,7 @@ class NotificationTestView(APIView):
 from .serializers import ClientCoachSerializer, CoachRevenueSerializer
 
 
-class CoachClientView(generics.ModelViewSet):
+class CoachClientView(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = Clinet_Coach.objects.all()
     serializer_class = ClientCoachSerializer
@@ -2733,7 +2733,7 @@ class CoachClientView(generics.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]
 
 
-class CoachRevenueChangeView(generics.ModelViewSet):
+class CoachRevenueChangeView(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = CoachRevenue.objects.all()
     serializer_class = CoachRevenueSerializer
