@@ -616,14 +616,22 @@ class LeadsSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        email = validated_data.get('email')
-
-        # If a lead with this email exists, update it instead of creating a new one
-        lead, created = Leads.objects.update_or_create(
-            email=email,
-            defaults=validated_data,  # name, phone_number, messaged, etc.
-        )
-        return lead
+        email = validated_data['email']
+        
+        existing_obj = Leads.objects.filter(email=email).first()
+        
+        if existing_obj:
+            # Update fields manually
+            for field, value in validated_data.items():
+                setattr(existing_obj, field, value)
+            
+            # Override created_at with current timestamp
+            existing_obj.created_at = timezone.now()
+            existing_obj.save()
+            return existing_obj
+        
+        # If object not found, create new
+        return super().create(validated_data)
 
 
 import uuid
