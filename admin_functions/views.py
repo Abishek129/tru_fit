@@ -513,131 +513,115 @@ class RPaymentInitializationView(APIView):
 
 
 class RPaymentVerificationView(APIView):
-    """
-    Verifies Razorpay payment and updates the order status.
-    """
+    """ Verifies Razorpay payment and updates the order status. """
     permission_classes = [AllowAny]
-
+    
     def post(self, request):
-        # Extract payment details
         client_id = request.data.get("client_id")
         razorpay_order_id = request.data.get("razorpay_order_id")
         payment_id = request.data.get("razorpay_payment_id")
         signature = request.data.get("razorpay_signature")
-
+        
         if not all([client_id, payment_id, signature]):
-            return Response({"error": "Incomplete payment details provided."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Fetch the order
+            return Response(
+                {"error": "Incomplete payment details provided.", "flag": "False"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Fetch the client
         client_obj = get_object_or_404(ClientDetails, id=client_id)
-
+        
         key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
-        key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)        
-        # Verify the Razorpay payment signature
+        key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
+        
+        if not key_id or not key_secret:
+            return Response(
+                {"error": "Payment gateway configuration error.", "flag": "False"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
         razorpay_client = razorpay.Client(auth=(key_id, key_secret))
+        
+        # ✅ Verify signature
         try:
-            razorpay_client.utility.verify_payment_signature(
-                {
-                    "razorpay_order_id": razorpay_order_id,
-                    "razorpay_payment_id": payment_id,
-                    "razorpay_signature": signature,
-                }
-            )
-            # Update the order's payment status
-            
-            
-#            client_obj.payment_status = "paid"
-#            
-#            client_obj.save(update_fields=["payment_status"])
-#            client_obj.payment_date = timezone.now()
-#            cat = Category.objects.get(coach_level=client_obj.coach.coach_level, location="international")
-#            if client_obj.plan == 2:
-#                    plan = Plan.objects.get(category=cat, duration_weeks=12)
-#                    order_amt = plan.price
-#            elif client_obj.plan == 3:
-#                plan = Plan.objects.get(category=cat, duration_weeks=24)
-#                order_amt = plan.price
-#            else:
-#                plan = Plan.objects.get(category=cat, duration_weeks=None)
-#                order_amt = plan.price
-#            
-#            if client_obj.plan != 1:
-#                client_obj.active = True
-#                active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
-#                
-#                if client_obj.plan == 2:
-#                    plan = Plan.objects.get(category=cat, duration_weeks=12)
-#                    order_amt = plan.price
-#                else:
-#                    plan = Plan.objects.get(category=cat, duration_weeks=24)
-#                    order_amt = plan.price
-#                
-#                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
-#                coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
-                
-                    
-#                coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(order_amt))
-#                coach_revenue_obj.save()
-#                active_client.active = True
-#                active_client.location = "international"
-#                active_client.save()
-                #print(active_client)
-#            else:
-#                active_client = Clinet_Coach.objects.filter(client=client_obj,coach=client_obj.coach).latest('start_date')
-#                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(order_amt))
-#                active_client.location = "international"
-#                active_client.save()
-#            finance = Finance_details.objects.filter(client=client_obj, location="international").order_by('-start_date').first()
-#            finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
-#            if client_obj.plan == 1:
-#                finance.end_date = timezone.now()
-#                send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
-#                Notification.objects.create(
-#            
-#                    message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
-                    
-#                )
-
-#            elif client_obj.plan == 2:
-#                finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
-#                send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
-#                Notification.objects.create(
-#                    
-#                    message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
-#                    
-#                )
-#            elif client_obj.plan == 3:
-#                finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
-#                send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: US $ {order_amt}")
-#                Notification.objects.create(
-                   
-#                    message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: US $ {order_amt}",
-                    
-#                )
-            
- #           finance.save()
-  #          client_obj.save()
-            
-
-            
-
- 
-
+            razorpay_client.utility.verify_payment_signature({
+                "razorpay_order_id": razorpay_order_id,
+                "razorpay_payment_id": payment_id,
+                "razorpay_signature": signature,
+            })
         except razorpay.errors.SignatureVerificationError:
-            razorpay_client.utility.verify_payment_signature(
-                {
-                    "razorpay_order_id": razorpay_order_id,
-                    "razorpay_payment_id": payment_id,
-                    "razorpay_signature": signature,
-                }
+            return Response(
+                {"error": "Payment signature verification failed.", "flag": "False"},
+                status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # ✅ CRITICAL: Check payment status with Razorpay
+        try:
+            payment = razorpay_client.payment.fetch(payment_id)
+            payment_status = payment.get('status')
             
-
-            return Response({"error": "Payment verification failed.", "flag": "False"}, status=status.HTTP_400_BAD_REQUEST)
- 
-        return Response({"message": "Payment verified successfully.", "flag": "True"}, status=status.HTTP_200_OK)
-
-
+            if payment_status == 'captured':
+                # Payment successful
+                client_obj.payment_status = "paid"
+                client_obj.payment_date = timezone.now()
+                client_obj.save(update_fields=["payment_status", "payment_date"])
+                
+                return Response(
+                    {"message": "Payment verified successfully.", "flag": "True"},
+                    status=status.HTTP_200_OK
+                )
+            elif payment_status == 'failed':
+                return Response({
+                    "error": "Payment was declined or failed.",
+                    "flag": "False",
+                    "error_code": "PAYMENT_FAILED"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({
+                    "error": f"Payment not completed. Status: {payment_status}",
+                    "flag": "False",
+                    "error_code": "PAYMENT_PENDING"
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except razorpay.errors.BadRequestError as e:
+            error_msg = str(e)
+            
+            # ✅ SPECIFIC: Handle error code 101 (transaction not found)
+            if "not found" in error_msg.lower() or "101" in error_msg:
+                # Check if order is expired
+                try:
+                    order = razorpay_client.order.fetch(razorpay_order_id)
+                    if order.get('status') == 'expired':
+                        return Response({
+                            "error": "Payment session expired. The authentication took too long. Please try again.",
+                            "flag": "False",
+                            "error_code": "SESSION_EXPIRED",
+                            "retry": True,
+                            "user_message": "Your card was NOT charged. Please try the payment again."
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except:
+                    pass
+                
+                return Response({
+                    "error": "Transaction not found or expired. This may happen if the authentication took too long.",
+                    "flag": "False",
+                    "error_code": "TRANSACTION_NOT_FOUND",
+                    "retry": True,
+                    "user_message": "The payment session expired. Your card was NOT charged. Please try again."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response({
+                "error": f"Payment verification failed: {error_msg}",
+                "flag": "False",
+                "retry": True
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            return Response({
+                "error": "An unexpected error occurred during verification.",
+                "flag": "False",
+                "retry": True
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
@@ -884,6 +868,7 @@ def payment_webhook(request):
 
         # already marked paid
         return JsonResponse({"message": "Payment already processed"}, status=200)
+    
 
     # ---- Fallback ----
     return JsonResponse({"message": "Payment status unhandled"}, status=200)
@@ -2549,6 +2534,15 @@ class TopClientsByPaymentMode(APIView):
         }, status=status.HTTP_200_OK)
     
 
+class ClientsCheckView(APIView):
+    permission_classes=[AllowAny]
+
+    def get(self, request):
+        clients = ClientDetails.objects.all()
+        serializers = TopClientsSerializer(clients)
+        return Response ({
+            "clients": serializers.data
+        })
 
 class EnquiryFormView(APIView):
     permission_classes = [AllowAny]
