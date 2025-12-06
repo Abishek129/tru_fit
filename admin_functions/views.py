@@ -20,7 +20,7 @@ from rest_framework import status, permissions
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 import re
 from rest_framework import generics
-from .serializers import UserSerializer
+from .serializers import UserSerializer, FinanceUpdateSerializer
 
 class UserProfileView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
@@ -2804,5 +2804,5 @@ class CoachRevenueChangeView(viewsets.ModelViewSet):
 class FinanceCheck(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     query = Finance_details.objects.all()
-    serializer_class = FinancialReportSerializer
+    serializer_class = FinanceUpdateSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]

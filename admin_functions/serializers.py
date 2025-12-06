@@ -604,6 +604,28 @@ class FinancialReportSerializer(serializers.Serializer):
         ]
 
 
+from rest_framework import serializers
+
+class FinanceUpdateSerializer(serializers.ModelSerializer):
+    # use client id for write operations
+    client = serializers.PrimaryKeyRelatedField(
+        queryset=ClientDetails.objects.all()
+    )
+    # if you still want the mini nested client for reads, add:
+    # client_detail = ClientMiniSerializer(source='client', read_only=True)
+
+    class Meta:
+        model = Finance_details
+        fields = [
+            "id",
+            "client",           # or "client_detail" as extra
+            "start_date",
+            "end_date",
+            "location",
+            "amount_paid",
+            "payment_status",
+        ]
+
 from .models import Leads
 
 
