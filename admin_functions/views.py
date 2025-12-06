@@ -2539,7 +2539,7 @@ class ClientsCheckView(APIView):
 
     def get(self, request):
         clients = ClientDetails.objects.all()
-        serializers = TopClientsSerializer(clients)
+        serializers = TopClientsSerializer(clients, many = True)
         return Response ({
             "clients": serializers.data
         })
