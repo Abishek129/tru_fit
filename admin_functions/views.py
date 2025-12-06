@@ -706,6 +706,7 @@ from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from .tasks import send_admin_mail
 
 # from rest_framework.response import Response  # <-- DO NOT use this here
 
@@ -786,9 +787,9 @@ def payment_webhook(request):
                     client=client_obj,
                     coach=client_obj.coach
                 )
-                active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
+                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
-                coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(amount_paid))
+                coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 coach_revenue_obj.save()
 
                 active_client.start_date = timezone.now() + timezone.timedelta(days=7)
@@ -806,6 +807,7 @@ def payment_webhook(request):
             if client_obj.plan == 1:
                 finance.end_date = timezone.now()
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultation call", amount=amount_paid, currency="USD")
+                send_admin_mail.delay(client_name=client_obj.name, plan_name="consultation call", coach = client_obj.coach.name,  amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New consultation call: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -820,6 +822,7 @@ def payment_webhook(request):
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                 active_client.save()
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=amount_paid, currency="USD")
+                send_admin_mail.delay(client_name=client_obj.name, plan_name="12 weeks plan", coach = client_obj.coach.name,  amount=amount_paid, currency="USD")
                 send_test_message(
                     f"New 12 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -834,6 +837,7 @@ def payment_webhook(request):
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                 active_client.save()
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=amount_paid, currency="USD")
+                send_admin_mail.delay(client_name=client_obj.name, plan_name="24 weeks plan", coach = client_obj.coach.name,  amount=amount_paid, currency="USD")   
                 send_test_message(
                     f"New 24 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
@@ -1606,6 +1610,7 @@ class CashfreeWebhookView(View):
                     finance.end_date = timezone.now()
                     print("Finance end date set to now for consultation plan")
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultaion call", amount=order_amt, currency="INR")
+                    send_admin_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultaion call", amount=order_amt, currency="INR")
                     print("Plan mail sent for consultation")
                     send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     print("Test message sent for consultation")
@@ -1623,6 +1628,7 @@ class CashfreeWebhookView(View):
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                     print("Active client end date set for 12 weeks plan")
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
+                    send_admin_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
                     print("Plan mail sent for 12 weeks plan")
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     print("Test message sent for 12 weeks plan")
@@ -1641,6 +1647,7 @@ class CashfreeWebhookView(View):
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                     print("Active client end date set for 24 weeks plan")
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
+                    send_admin_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
                     print("Plan mail sent for 24 weeks plan")
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
                     print("Test message sent for 24 weeks plan")
@@ -2713,3 +2720,21 @@ class NotificationTestView(APIView):
                     )
         return Response({"detail": "Test notification created."}, status=status.HTTP_200_OK)
     
+
+
+from .serializers import ClientCoachSerializer, CoachRevenueSerializer
+
+
+class CoachClientView(generics.ModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = Clinet_Coach.objects.all()
+    serializer_class = ClientCoachSerializer
+    #permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser]
+
+
+class CoachRevenueChangeView(generics.ModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = CoachRevenue.objects.all()
+    serializer_class = CoachRevenueSerializer
+    parser_classes = [MultiPartParser, FormParser]

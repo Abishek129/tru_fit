@@ -45,6 +45,21 @@ def send_plan_mail(client_name, client_email, plan_name, coach, amount, currency
         recipient_list=[client_email],    
 
     )
+
+@shared_task
+def send_admin_mail(client_name, plan_name, coach, amount, currency):
+
+    from django.core.mail import send_mail
+    subject = "New Plan Purchase Notification"
+    message = f"{client_name} has purchased the {plan_name} with {coach} for {amount} {currency}."
+    
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=["support@betrufit.com"],    
+
+    )
 from django.utils.html import strip_tags
 
 @shared_task

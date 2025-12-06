@@ -6,6 +6,7 @@ from .views import ForgotPasswordRequestView, VerifyOTPView, CoachRevenueView , 
 from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,CashfreeWebhookView, SendLeadsEmailView, NotificationTestView
 
 from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task , payment_webhook_test, testMailView
+from .views import CoachClientView, CoachRevenueChangeView
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -13,6 +14,8 @@ router.register(r"test-images", TestImageViewSet, basename="testimage")
 router.register(r'coaches', CoachProfileViewSet, basename='coachprofile')
 router.register(r'certifications', CoachCertificationViewSet, basename='coachcertification')
 router.register(r"plans", PlansViewSet, basename= "plans")
+router.register(r"client_coach_change", CoachClientView, basename='client_coach_change')
+router.register(r"coach_revenue_adjust", CoachRevenueChangeView, basename='coach_revnue_change')
 router.register(r'client-coach', ClinetCoachTableViewSet, basename='client-coach')  
 urlpatterns = [
     path("", include(router.urls)),
@@ -81,6 +84,9 @@ urlpatterns = [
     # =================== Admin Tasks ===================
     path('leads/send-mail/', SendLeadsEmailView.as_view(), name='send-lead-emails'),
     path('notification-test/', NotificationTestView.as_view(), name='notification-test'),
+
+
+    
     
   
 

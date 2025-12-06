@@ -692,3 +692,35 @@ class TopClientsSerializer(serializers.ModelSerializer):
             "coach_name",
             "residence"
         ]
+
+
+
+class ClientCoachSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source="client.name", read_only=True)
+    coach_name  = serializers.CharField(source="coach.name", read_only=True)
+
+    class Meta:
+        model = Clinet_Coach
+        fields = [
+            "id",
+            "client_name",
+            "coach_name",
+            "start_date",
+            "duration_weeks",
+            "active",
+            "inr_revenue",
+            "us_revenue",
+        ]
+
+
+class CoachRevenueSerializer(serializers.ModelSerializer):
+    coach_name  = serializers.CharField(source="coach.name", read_only=True)
+
+    class Meta:
+        model = Clinet_Coach
+        fields = [
+            "id",
+            "coach_name",
+            "inr_revenue",
+            "us_revenue",
+        ]
