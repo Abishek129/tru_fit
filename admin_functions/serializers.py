@@ -601,7 +601,7 @@ class FinancialReportSerializer(serializers.Serializer):
             "location",
             "amount_paid",
             "payment_status",
-            "plan"
+        
         ]
 
 
@@ -625,7 +625,7 @@ class FinanceUpdateSerializer(serializers.ModelSerializer):
             "location",
             "amount_paid",
             "payment_status",
-            "plan"
+
         ]
 
 from .models import Leads
