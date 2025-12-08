@@ -395,6 +395,7 @@ class Finance_details(models.Model):
     ]
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    plan = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     
     
@@ -412,6 +413,7 @@ class Leads(models.Model):
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     #message = models.TextField(blank=True, null=True)
     messaged = models.BooleanField(default=False)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
