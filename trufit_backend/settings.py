@@ -37,7 +37,6 @@ CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
 AUTH_USER_MODEL = 'admin_functions.User'
 CORS_ALLOWED_ORIGINS = [
     "https://tru-fit.vercel.app/",
-    "https://tru-fit.vercel.app",
     "https://www.betrufit.com",
     "https://betrufit.com",
     "https://dashboard.betrufit.com",
