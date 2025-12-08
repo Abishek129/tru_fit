@@ -2551,6 +2551,8 @@ class ClientCheck2View(APIView):
     def get(self, request):
         finance_details = Finance_details.objects.all()
         serializers = FinancialReportSerializer(finance_details, many = True)
+        return Response(serializers.data)
+
 
 class EnquiryFormView(APIView):
     permission_classes = [AllowAny]
