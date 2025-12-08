@@ -600,8 +600,7 @@ class FinancialReportSerializer(serializers.Serializer):
             'end_date',
             "location",
             "amount_paid",
-            "payment_status",
-            "plan",
+            "payment_status"
         
         ]
 
@@ -626,7 +625,7 @@ class FinanceUpdateSerializer(serializers.ModelSerializer):
             "location",
             "amount_paid",
             "payment_status",
-            "plan",
+            
 
         ]
 
