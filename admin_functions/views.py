@@ -441,7 +441,7 @@ class RPaymentInitializationView(APIView):
                     active_client.duration_weeks = 24
                     active_client.save()
                 else:
-                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=12, active = False)
+                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, duration_weeks=24, active = False)
                 #if not 
                 #    return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
                 #
@@ -559,6 +559,8 @@ class RPaymentVerificationView(APIView):
         try:
             payment = razorpay_client.payment.fetch(payment_id)
             payment_status = payment.get('status')
+
+
             
             if payment_status == 'captured':
                 # Payment successful
@@ -571,16 +573,72 @@ class RPaymentVerificationView(APIView):
                     status=status.HTTP_200_OK
                 )
             elif payment_status == 'failed':
+                error_code = payment.get('error_code')
+                error_description = payment.get('error_description', '')
+                error_source = payment.get('error_source', '')
+                error_reason = payment.get('error_reason', '')
+                
+                # Check if it's a 3DS authentication failure
+                is_3ds_error = (
+                    error_code == "101" or
+                    "3ds" in error_description.lower() or
+                    "authentication" in error_description.lower() or
+                    "transaction not found" in error_description.lower() or
+                    error_source == "issuer" or
+                    "retrieved transaction id" in error_description.lower() or
+                    error_reason == "authentication_failed"
+                )
+                
+                if is_3ds_error:
+                    return Response({
+                        "error": "3D Secure authentication failed. Your card was not charged.",
+                        "flag": "False",
+                        "error_code": "3DS_AUTH_FAILED",
+                        "error_type": "3DS_ERROR",
+                        "retry": True,
+                        "user_message": "The card authentication failed. Please try again with a different card or contact your bank.",
+                        "payment_status": payment_status,
+                        "razorpay_error_code": error_code,
+                        "razorpay_error_description": error_description
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
                 return Response({
                     "error": "Payment was declined or failed.",
                     "flag": "False",
-                    "error_code": "PAYMENT_FAILED"
+                    "error_code": "PAYMENT_FAILED",
+                    "retry": True,
+                    "user_message": "Payment failed. Please try again or use a different payment method.",
+                    "payment_status": payment_status
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+
+            elif payment_status == 'expired':
+                return Response({
+                    "error": "Payment session expired. The 3DS authentication took too long.",
+                    "flag": "False",
+                    "error_code": "SESSION_EXPIRED",
+                    "error_type": "3DS_TIMEOUT",
+                    "retry": True,
+                    "user_message": "Your card was NOT charged. The authentication session expired. Please try the payment again.",
+                    "payment_status": payment_status
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            elif payment_status == 'authorized':
+                # Payment authorized but not captured (shouldn't happen with payment_capture: 1)
+                return Response({
+                    "error": "Payment is authorized but not captured. Please contact support.",
+                    "flag": "False",
+                    "error_code": "PAYMENT_AUTHORIZED",
+                    "retry": False
                 }, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response({
                     "error": f"Payment not completed. Status: {payment_status}",
                     "flag": "False",
-                    "error_code": "PAYMENT_PENDING"
+                    "error_code": "PAYMENT_PENDING",
+                    "retry": True,
+                    "user_message": "Payment is still processing. Please wait or try again.",
+                    "payment_status": payment_status
                 }, status=status.HTTP_400_BAD_REQUEST)
                 
         except razorpay.errors.BadRequestError as e:
@@ -591,38 +649,117 @@ class RPaymentVerificationView(APIView):
                 # Check if order is expired
                 try:
                     order = razorpay_client.order.fetch(razorpay_order_id)
+                    order_status = order.get('status')
                     if order.get('status') == 'expired':
                         return Response({
                             "error": "Payment session expired. The authentication took too long. Please try again.",
                             "flag": "False",
                             "error_code": "SESSION_EXPIRED",
                             "retry": True,
-                            "user_message": "Your card was NOT charged. Please try the payment again."
+                            "user_message": "Your card was NOT charged. Please try the payment again.",
+                            "order_status": "order_status"
                         }, status=status.HTTP_400_BAD_REQUEST)
-                except:
-                    pass
+                    elif order_status == 'paid':
+                        # Order is paid but payment fetch failed - might be a timing issue
+                        return Response({
+                            "error": "Payment verification in progress. Please wait a moment.",
+                            "flag": "False",
+                            "error_code": "VERIFICATION_PENDING",
+                            "retry": True,
+                            "user_message": "Payment is being verified. Please wait or refresh the page."
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except Exception as order_error:
+                    print(f"Order fetch error: {order_error}")
                 
                 return Response({
-                    "error": "Transaction not found or expired. This may happen if the authentication took too long.",
+                    "error": "Transaction not found or expired. This may happen if the 3DS authentication took too long.",
                     "flag": "False",
                     "error_code": "TRANSACTION_NOT_FOUND",
+                    "error_type": "3DS_ERROR",
                     "retry": True,
-                    "user_message": "The payment session expired. Your card was NOT charged. Please try again."
+                    "user_message": "The payment session expired during card authentication. Your card was NOT charged. Please try again.",
+                    "razorpay_error": error_msg
                 }, status=status.HTTP_400_BAD_REQUEST)
             
+            # ✅ Handle other Razorpay errors
             return Response({
                 "error": f"Payment verification failed: {error_msg}",
                 "flag": "False",
-                "retry": True
+                "error_code": "VERIFICATION_ERROR",
+                "retry": True,
+                "user_message": "Unable to verify payment. Please try again.",
+                "razorpay_error": error_msg
             }, status=status.HTTP_400_BAD_REQUEST)
             
+        except razorpay.errors.ServerError as e:
+            return Response({
+                "error": "Payment gateway server error. Please try again later.",
+                "flag": "False",
+                "error_code": "GATEWAY_ERROR",
+                "retry": True,
+                "user_message": "The payment gateway is temporarily unavailable. Please try again in a few moments."
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
         except Exception as e:
+            print(f"Unexpected error in payment verification: {e}")
             return Response({
                 "error": "An unexpected error occurred during verification.",
                 "flag": "False",
-                "retry": True
+                "error_code": "UNEXPECTED_ERROR",
+                "retry": True,
+                "user_message": "An error occurred. Please try again or contact support."
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class ROrderStatusCheckView(APIView):
+    """ Check if Razorpay order is still valid before payment attempt """
+    permission_classes = [AllowAny]
+    
+    def post(self, request, client_id):
+        try:
+            client = get_object_or_404(ClientDetails, id=client_id)
+            razorpay_order_id = request.data.get("razorpay_order_id")
+            
+            if not razorpay_order_id:
+                return Response(
+                    {"error": "Order ID required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
+            key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
+            
+            if not key_id or not key_secret:
+                return Response(
+                    {"error": "Payment gateway configuration error."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            rz_client = razorpay.Client(auth=(key_id, key_secret))
+            
+            try:
+                order = rz_client.order.fetch(razorpay_order_id)
+                order_status = order.get('status')
+                
+                return Response({
+                    "order_id": razorpay_order_id,
+                    "status": order_status,
+                    "valid": order_status in ['created', 'attempted'],
+                    "expired": order_status == 'expired',
+                    "paid": order_status == 'paid'
+                }, status=status.HTTP_200_OK)
+                
+            except razorpay.errors.BadRequestError as e:
+                return Response({
+                    "error": "Order not found or invalid",
+                    "valid": False,
+                    "expired": True
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            return Response({
+                "error": "Failed to check order status",
+                "details": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 key_id = getattr(settings, "RAZORPAY_KEY_ID", None)
 key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", None)
@@ -751,6 +888,7 @@ def payment_webhook(request):
         )
 
         if not active_client.inr_revenue or not active_client.us_revenue:
+            active_client.delete()
             # your logic here, `del` only deletes Python variable, not DB row
             pass
 

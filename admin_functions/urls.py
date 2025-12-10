@@ -7,7 +7,7 @@ from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,Ca
 
 from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task , payment_webhook_test, testMailView
 from .views import CoachClientView, CoachRevenueChangeView
-from .views import ClientCheck2View, FinanceCheck
+from .views import ClientCheck2View, FinanceCheck, ROrderStatusCheckView
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -87,7 +87,8 @@ urlpatterns = [
     path('leads/send-mail/', SendLeadsEmailView.as_view(), name='send-lead-emails'),
     path('notification-test/', NotificationTestView.as_view(), name='notification-test'),
     path('clients_check/', ClientsCheckView.as_view(), name="client_check"),
-    path('finance_details_check/', ClientCheck2View.as_view(), name = 'finance_check')
+    path('finance_details_check/', ClientCheck2View.as_view(), name = 'finance_check'),
+    path('razorpay-order-status/<str:client_id>/', ROrderStatusCheckView.as_view(), name='razorpay-order-status'),
 
 
     
