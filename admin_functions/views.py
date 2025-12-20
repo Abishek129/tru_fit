@@ -769,9 +769,10 @@ from razorpay.utility import Utility
 import hmac, hashlib
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.encoding import force_bytes # pip install razorpay
 
-WEBHOOK_SECRET = "strong_secret"  # set same value in Razorpay dashboard
+from django.utils.encoding import force_bytes # pip install razorpay
+from django.conf import settings
+WEBHOOK_SECRET = settings.WEBHOOK_SECRET  # set same value in Razorpay dashboard
 import json
 import hmac, hashlib
 from django.http import HttpResponse, HttpResponseBadRequest
@@ -831,7 +832,8 @@ from .tasks import send_admin_mail
 
 # from rest_framework.response import Response  # <-- DO NOT use this here
 
-WEBHOOK_SECRET = "your_webhook_secret_here"
+WEBHOOK_SECRET = settings.WEBHOOK_SECRET  
+#your_webhook_secret_here
 from .tasks import send_plan_mail
 
 @csrf_exempt
