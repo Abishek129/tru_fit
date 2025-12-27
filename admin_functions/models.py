@@ -396,6 +396,7 @@ class Finance_details(models.Model):
         ('international', 'INTERNATIONAL'),
     ]
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES)
+    country = models.CharField(max_length=200, blank=True, null=True)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     plan = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
