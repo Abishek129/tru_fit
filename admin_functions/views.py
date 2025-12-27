@@ -262,6 +262,7 @@ class RBuyNowAPIView(APIView):
             #print(client)
             finance_details = Finance_details.objects.create(client=client, location="international")
             finance_details.country = client.residence
+            finance_details.save()
             data = ClientDetailsSerializer(client).data
             print(data)
             return Response(data, status=status.HTTP_201_CREATED)
@@ -1077,6 +1078,7 @@ class CBuyNowAPIView(APIView):
             print(client.phone_number, "testing before")         
             finace_details = Finance_details.objects.create(client=client, location="domestic", payment_status="pending")
             finace_details.country = client.residence
+            finace_details.save()
             data = ClientDetailsSerializer(client).data
             return Response(data, status=status.HTTP_201_CREATED)
 
