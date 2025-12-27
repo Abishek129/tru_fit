@@ -7,7 +7,7 @@ from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,Ca
 
 from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task , payment_webhook_test, testMailView
 from .views import CoachClientView, CoachRevenueChangeView
-from .views import ClientCheck2View, FinanceCheck, ROrderStatusCheckView
+from .views import ClientCheck2View, FinanceCheck, ROrderStatusCheckView, Top5FinanceDetailsView
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -61,7 +61,7 @@ urlpatterns = [
     path('new-notifications/', NotificationView.as_view(), name='notifications'),
     path('notifications/', NotificationListView.as_view(), name='notification-list'),
     path('notifications/<int:notification_id>/', NotificationEditView.as_view(), name='notification-edit'),
-    path('recent-clients/', TopClientsByPaymentMode.as_view(), name='top-clients'),
+    path('recent-clients/', Top5FinanceDetailsView.as_view(), name='top-clients'),
     path('enquiry/', EnquiryFormView.as_view(), name='enquiry-form'),
     path('stats/', ClientCoachStatsView.as_view(), name='stats'),
     

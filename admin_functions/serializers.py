@@ -271,6 +271,8 @@ class ClientTableSerializer(serializers.ModelSerializer):
             "email",
             "phone_number",
             "residence",
+            "state",
+            "city",
             "coach",
             "created_date",
             'payment_date',
@@ -765,4 +767,28 @@ class CoachRevenueSerializer(serializers.ModelSerializer):
             "coach_name",
             "inr_revenue",
             "us_revenue",
+        ]
+
+
+
+class NewFinanceDetailsSerializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='client.name', read_only=True)
+    client_email = serializers.EmailField(source='client.email', read_only=True)
+    client_phone_number = serializers.CharField(source='client.phone_number', read_only=True)
+
+    coach_name = serializers.CharField(source='coach.name', read_only=True)
+
+    
+
+    class Meta:
+        model = Finance_details
+        fields = [
+            'client_name',
+            'client_email',
+            'client_phone_number',
+            'coach_name',
+            'location',
+            'payment_status',
+            'created_date',
+            'plan',
         ]

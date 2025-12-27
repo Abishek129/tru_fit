@@ -218,6 +218,8 @@ class ClientDetails(models.Model):
         related_name='coach_clients'
     )
     residence = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
     created_date = models.DateTimeField(default=timezone.now)
     payment_date = models.DateField(default=timezone.localdate) # or auto_now_add=True
     payment_mode = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
@@ -395,8 +397,17 @@ class Finance_details(models.Model):
     ]
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES)
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    #plan = models.CharField(max_length=100, null=True, blank=True)
+    plan = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    coach = models.ForeignKey(   
+        CoachProfile,
+        on_delete=models.SET_NULL,
+        related_name='finance_details',
+        null=True,
+        blank=True
+    )
+    created_date = models.DateTimeField(auto_now_add=True, null=True)
+
     
     
 

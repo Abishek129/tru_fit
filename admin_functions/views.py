@@ -927,9 +927,11 @@ def payment_webhook(request):
                 location="international"
             ).order_by('-start_date', '-id').first()
             finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(amount_paid))
+            finance.coach = client_obj.coach
             finance.payment_status = "paid"
             if client_obj.plan == 1:
                 finance.end_date = timezone.now()
+                finance.plan = "Consultation Call"
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultation call", amount=amount_paid, currency="USD")
                 try:
                     send_admin_mail.delay(
@@ -945,6 +947,13 @@ def payment_webhook(request):
                     f"New consultation call: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
                 )
+                active_client = Clinet_Coach.objects.get(
+                    client=client_obj,
+                    coach=client_obj.coach
+                )
+                active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
+                active_client.save()
+
                 Notification.objects.create(
                     message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. "
                             f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
@@ -952,6 +961,7 @@ def payment_webhook(request):
 
             elif client_obj.plan == 2:
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                finance.plan = "12 Weeks"
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                 active_client.save()
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=amount_paid, currency="USD")
@@ -976,13 +986,14 @@ def payment_webhook(request):
 
             elif client_obj.plan == 3:
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                finance.plan = "24 Weeks"
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                 active_client.save()
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=amount_paid, currency="USD")
                 try:
                     send_admin_mail.delay(
                         client_name=client_obj.name,
-                        plan_name="consultation call",
+                        plan_name="24 Weeks",
                         coach=client_obj.coach.name,
                         amount=amount_paid,
                         currency="USD"
@@ -1027,6 +1038,8 @@ class CBuyNowAPIView(APIView):
             coach_id = request.data.get('coach')
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
+            state = request.data.get('state')
+            city = request.data.get('city')
             print(coach_id, "coach id")
             coach = get_object_or_404(CoachProfile, pk=coach_id)
 
@@ -1036,6 +1049,8 @@ class CBuyNowAPIView(APIView):
                 client.plan=plan
                 client.coach = coach    
                 client.residence=residence
+                client.state = state
+                client.city = city
                 client.payment_status="pending"
                 client.save()
             
@@ -1757,10 +1772,16 @@ class CashfreeWebhookView(View):
                     # ======================== delete client_coach if revenue is zero
                 finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
+                finance.coach = client_obj.coach
                 finance.payment_status = "paid"
                 if client_obj.plan == 1:
                     print("Consultation plan processing")
                     finance.end_date = timezone.now()
+                    finance.plan = "Consultation Call"
+                    active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+
+                    active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
+                    active_client.save()
                     print("Finance end date set to now for consultation plan")
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultaion call", amount=order_amt, currency="INR")
                     try:
@@ -1786,6 +1807,7 @@ class CashfreeWebhookView(View):
                 elif client_obj.plan == 2:
                     print("12 weeks plan processing")
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
+                    finance.plan = "12 Weeks"
                     print("Finance end date set for 12 weeks plan")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
@@ -1814,6 +1836,7 @@ class CashfreeWebhookView(View):
                 elif client_obj.plan == 3:
                     print("24 weeks plan processing")
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
+                    finance.plan = "24 Weeks"
                     print("Finance end date set for 24 weeks plan")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     print("Active client fetched for 24 weeks plan")
@@ -2722,6 +2745,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import ClientDetails, Clinet_Coach
+from .serializers import NewFinanceDetailsSerializer
 
 class ClientCoachStatsView(APIView):
     """
@@ -2948,3 +2972,25 @@ class FinanceCheck(viewsets.ModelViewSet):
     query = Finance_details.objects.all()
     serializer_class = FinanceUpdateSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+
+
+from .serializers import NewFinanceDetailsSerializer
+
+
+class Top5FinanceDetailsView(APIView):
+    def get(self, request, *args, **kwargs):
+        domestic = Finance_details.objects.filter(
+            payment_status="paid",
+            location="domestic"
+        ).order_by("-created_date")[:5]
+
+        international = Finance_details.objects.filter(
+            payment_status="paid",
+            location="international"
+        ).order_by("-created_date")[:5]
+
+        return Response({
+            "domestic": NewFinanceDetailsSerializer(domestic, many=True).data,
+            "international": NewFinanceDetailsSerializer(international, many=True).data,
+        })
