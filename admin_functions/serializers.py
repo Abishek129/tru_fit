@@ -788,6 +788,7 @@ class NewFinanceDetailsSerializer(serializers.ModelSerializer):
             'client_phone_number',
             'coach_name',
             'location',
+            'country',
             'payment_status',
             'created_date',
             'plan',
