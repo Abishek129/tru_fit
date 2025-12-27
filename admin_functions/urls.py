@@ -7,7 +7,7 @@ from .views import coach_profile_list, coach_profile_detail, CPaymentTestView,Ca
 
 from .views import testimonial_list, testimonial_detail, payment_webhook, run_simple_task , payment_webhook_test, testMailView
 from .views import CoachClientView, CoachRevenueChangeView
-from .views import ClientCheck2View, FinanceCheck, ROrderStatusCheckView, Top5FinanceDetailsView
+from .views import ClientCheck2View, FinanceCheck, ROrderStatusCheckView, Top5FinanceDetailsView, PaidClientListView
 router = DefaultRouter()
 router.register(r"blogs", BlogViewSet, basename="blog")
 router.register(r"testimonials", TestimonialViewSet, basename='testimonial')
@@ -39,7 +39,7 @@ urlpatterns = [
     path("auth/token/refresh/", RefreshView.as_view(), name="token_refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("send-test-email/", TestEmailView.as_view(), name="send_test_email"),  
-    path("client-table/", ClientTableView.as_view(), name="client-table"),
+    path("client-table/", PaidClientListView.as_view(), name="client-table"),
     path("client-table/<slug:start_date>/", ClientTableView.as_view(), name="client-table-start"),
     path("client-table/<slug:start_date>/<slug:end_date>/", ClientTableView.as_view(), name="client-table-range"),
     path("coaches/<int:coach_id>/relations/", CoachClientListView.as_view(), name="coach-client-list"),

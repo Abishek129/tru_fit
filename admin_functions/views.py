@@ -2760,7 +2760,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import ClientDetails, Clinet_Coach
-from .serializers import NewFinanceDetailsSerializer
+from .serializers import NewFinanceDetailsSerializer, ClientTable2Serializer
 
 class ClientCoachStatsView(APIView):
     """
@@ -2990,7 +2990,7 @@ class FinanceCheck(viewsets.ModelViewSet):
 
 
 
-from .serializers import NewFinanceDetailsSerializer
+from .serializers import NewFinanceDetailsSerializer, ClientTable2Serializer
 
 
 class Top5FinanceDetailsView(APIView):
@@ -3009,3 +3009,13 @@ class Top5FinanceDetailsView(APIView):
             "domestic": NewFinanceDetailsSerializer(domestic, many=True).data,
             "international": NewFinanceDetailsSerializer(international, many=True).data,
         })
+    
+
+class PaidClientListView(APIView):
+    def get(self, request, *args, **kwargs):
+        clients = ClientDetails.objects.filter(
+            payment_status='paid'
+        ).order_by('-created_date')
+
+        serializer = ClientTable2Serializer(clients, many=True)
+        return Response(serializer.data)

@@ -792,3 +792,23 @@ class NewFinanceDetailsSerializer(serializers.ModelSerializer):
             'created_date',
             'plan',
         ]
+
+
+class ClientTable2Serializer(serializers.ModelSerializer):
+    client_name = serializers.CharField(source='name', read_only=True)
+    coach_name = serializers.CharField(source='coach.name', read_only=True)
+
+    class Meta:
+        model = ClientDetails
+        fields = [
+            'client_name',
+            'email',
+            'phone_number',
+            'coach_name',
+            'residence',
+            'state',
+            'city',
+            'payment_date',
+            'plan',
+            'payment_status'
+        ]
