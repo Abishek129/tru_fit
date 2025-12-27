@@ -421,6 +421,13 @@ class RPaymentInitializationView(APIView):
             # Amount (3 or 6 months)
             if client.plan == 1:
                 plan = Plan.objects.get(category=cat, duration_weeks=None)
+                if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+                    active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+                    #active_client.duration_weeks = 12
+                    active_client.save()
+                else:
+                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, active = False)
+                    active_client.save()
                 amount_dec = plan.price
             elif client.plan == 2:
                 plan = Plan.objects.get(category=cat, duration_weeks=12)
@@ -1283,6 +1290,14 @@ class CPaymentInitializationView(APIView):
             # Amount (3 or 6 months)
             if client.plan == 1:
                 plan = Plan.objects.get(category=cat,  duration_weeks=None)
+
+                if Clinet_Coach.objects.filter(client=client, coach=client.coach).exists():
+                    active_client = Clinet_Coach.objects.get(client=client, coach=client.coach)
+                    #active_client.duration_weeks = 12
+                    active_client.save()
+                else:
+                    active_client = Clinet_Coach.objects.create(client=client, coach=client.coach, active = False)
+                    active_client.save()
 
                 if not plan:
                     return Response({"error": "No plan found for the selected category and duration."}, status=status.HTTP_400_BAD_REQUEST)
