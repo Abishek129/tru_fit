@@ -2720,7 +2720,8 @@ class ClientsCheckView(APIView):
     permission_classes=[AllowAny]
 
     def get(self, request):
-        clients = ClientDetails.objects.all()
+        clients = ClientDetails.objects.filter(
+            payment_status='paid')
         serializers = TopClientsSerializer(clients, many = True)
         return Response ({
             "clients": serializers.data
