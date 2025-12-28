@@ -813,3 +813,24 @@ class ClientTable2Serializer(serializers.ModelSerializer):
             'plan',
             'payment_status'
         ]
+
+
+from rest_framework import serializers
+from .models import ClientDetails
+
+class ClientDetailsUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientDetails
+        fields = [
+            "name",
+            "email",
+            "phone_number",
+            "coach",
+            "residence",
+            "state",
+            "city",
+            "payment_date",
+            "plan",
+            "payment_status",
+            "active",
+        ]

@@ -962,6 +962,9 @@ def payment_webhook(request):
                 )
                 active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 active_client.save()
+                coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
+                coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
+                coach_revenue_obj.save()
 
                 Notification.objects.create(
                     message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. "
@@ -1801,6 +1804,11 @@ class CashfreeWebhookView(View):
 
                     active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     active_client.save()
+                    coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
+                    
+                        
+                    coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
+                    coach_revenue_obj.save()
                     print("Finance end date set to now for consultation plan")
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultaion call", amount=order_amt, currency="INR")
                     try:
@@ -2720,8 +2728,7 @@ class ClientsCheckView(APIView):
     permission_classes=[AllowAny]
 
     def get(self, request):
-        clients = ClientDetails.objects.filter(
-            payment_status='paid')
+        clients = ClientDetails.objects.all()
         serializers = TopClientsSerializer(clients, many = True)
         return Response ({
             "clients": serializers.data
@@ -3024,3 +3031,23 @@ class PaidClientListView(APIView):
 
         serializer = ClientTable2Serializer(clients, many=True)
         return Response(serializer.data)
+    
+
+from .models import ClientDetails
+from .serializers import ClientDetailsUpdateSerializer
+
+
+class ClientDetailsUpdateView(APIView):
+    def put(self, request, pk, *args, **kwargs):
+        client = get_object_or_404(ClientDetails, pk=pk)
+        serializer = ClientDetailsUpdateSerializer(client, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk, *args, **kwargs):
+        client = get_object_or_404(ClientDetails, pk=pk)
+        serializer = ClientDetailsUpdateSerializer(client, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
