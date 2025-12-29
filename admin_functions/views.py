@@ -234,6 +234,8 @@ class RBuyNowAPIView(APIView):
             phone_number = request.data.get('phone_number')
             plan = int(request.data.get('plan'))  # 3 or 6
             residence = request.data.get('residence')
+            city = request.data.get('city')
+            state = request.data.get('state')
             coach_id = request.data.get('coach')
             print(coach_id, "coach id" )
             print(type(coach_id))
@@ -245,6 +247,8 @@ class RBuyNowAPIView(APIView):
                 client.payment_mode="razorpay"
                 client.plan=plan
                 client.coach = coach
+                client.city = city
+                client.state = state
                 client.residence=residence
                 client.payment_status="pending"
                 client.save()
@@ -253,7 +257,9 @@ class RBuyNowAPIView(APIView):
                 client = ClientDetails.objects.create(
                     name=name,
                     email=email,
-                    coach=coach,                 # REQUIRED FK
+                    coach=coach, 
+                    city = city,
+                    state = state,    # REQUIRED FK
                     phone_number=phone_number,                # REQUIRED FK
                     residence=residence,
                     payment_mode="razorpay",     # fixed
@@ -1073,6 +1079,8 @@ class CBuyNowAPIView(APIView):
                     phone_number=phone_number,
                     coach=coach,                 # REQUIRED FK
                     residence=residence,
+                    city = city,
+                    state = state,
                     payment_mode="cashfree", 
                             # fixed
                     plan=plan

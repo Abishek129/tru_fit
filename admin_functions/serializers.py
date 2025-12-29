@@ -731,6 +731,8 @@ class TopClientsSerializer(serializers.ModelSerializer):
             "phone_number",
             "created_date",
             "plan",
+            "city",
+            "state",
             "payment_date",
             "coach",
             "coach_name",
