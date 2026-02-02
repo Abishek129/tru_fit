@@ -1,6 +1,9 @@
+import logging
 from django.shortcuts import render
 from .utils import send_test_message
 # Create your views here.
+
+logger = logging.getLogger(__name__)
 
 # admin_functions/views.py
 from rest_framework import viewsets, permissions, status
@@ -853,101 +856,131 @@ from .tasks import send_plan_mail
 
 @csrf_exempt
 def payment_webhook(request):
+    logger.info("[WEBHOOK] payment_webhook called, method=%s", request.method)
+
     if request.method != "POST":
+        logger.warning("[WEBHOOK] Invalid method: %s", request.method)
         return HttpResponseBadRequest("Invalid method")
 
-    print("Webhook POST")
+    logger.info("[WEBHOOK] Webhook POST received")
 
     raw_body = request.body  # bytes
     body_str = raw_body.decode("utf-8")
-    print("body", body_str)
-    print("headers", request.headers)
+    logger.info("[WEBHOOK] body: %s", body_str)
+    logger.info("[WEBHOOK] headers: %s", dict(request.headers))
 
     sig_received = request.headers.get("X-Razorpay-Signature", "")
-    print("signature received:", sig_received)
+    logger.info("[WEBHOOK] signature received: %s", sig_received)
 
     # ✅ Verify signature
+    logger.info("[WEBHOOK] WEBHOOK_SECRET is %s", "SET" if WEBHOOK_SECRET else "NONE/EMPTY")
+    if not WEBHOOK_SECRET:
+        logger.error("[WEBHOOK] WEBHOOK_SECRET is None or empty, cannot verify signature")
+        return HttpResponseBadRequest("Webhook secret not configured")
+
     expected = hmac.new(
         WEBHOOK_SECRET.encode(),
         raw_body,                   # use bytes directly
         hashlib.sha256
     ).hexdigest()
 
-    print("expected:", expected)
+    logger.info("[WEBHOOK] expected signature: %s", expected)
 
     if not hmac.compare_digest(expected, sig_received or ""):
-        print("❌ Signature mismatch")
+        logger.warning("[WEBHOOK] Signature mismatch — expected=%s received=%s", expected, sig_received)
         return HttpResponseBadRequest("Invalid signature")
 
-    print("✅ Signature Verified")
+    logger.info("[WEBHOOK] Signature verified successfully")
 
     try:
         body = json.loads(body_str)
     except json.JSONDecodeError:
+        logger.error("[WEBHOOK] Failed to parse JSON body")
         return HttpResponseBadRequest("Invalid JSON")
+
+    logger.info("[WEBHOOK] JSON parsed successfully")
 
     payment = body["payload"]["payment"]["entity"]
     payment_status = payment["status"]
     client_id = payment["notes"].get("client_id")
     amount_paid = payment["amount"] / 100.0  # amount in currency units
+    logger.info("[WEBHOOK] payment_status=%s client_id=%s amount_paid=%s", payment_status, client_id, amount_paid)
 
     client_obj = get_object_or_404(ClientDetails, id=client_id)
+    logger.info("[WEBHOOK] Found client: id=%s name=%s plan=%s", client_obj.id, client_obj.name, client_obj.plan)
 
     # ---- Payment failed ----
     if payment_status == "failed":
+        logger.info("[WEBHOOK] Processing FAILED payment for client_id=%s", client_id)
         finance = Finance_details.objects.filter(
             client=client_obj, location="international"
         ).order_by('-start_date', '-id').first()
+        logger.info("[WEBHOOK] Finance record found: %s", finance)
 
         active_client = Clinet_Coach.objects.get(
             client=client_obj,
             coach=client_obj.coach
         )
+        logger.info("[WEBHOOK] Active client record: inr_revenue=%s us_revenue=%s", active_client.inr_revenue, active_client.us_revenue)
 
         if not active_client.inr_revenue or not active_client.us_revenue:
+            logger.info("[WEBHOOK] Deleting active_client (no revenue recorded)")
             active_client.delete()
-            # your logic here, `del` only deletes Python variable, not DB row
             pass
 
+        logger.info("[WEBHOOK] Payment failed — returning 200")
         return JsonResponse({"message": "Payment failed"}, status=200)
 
     # ---- Payment captured ----
     if payment_status == "captured":
+        logger.info("[WEBHOOK] Processing CAPTURED payment for client_id=%s", client_id)
+        logger.info("[WEBHOOK] Current client payment_status=%s", client_obj.payment_status)
+
         if client_obj.payment_status != "paid":
             client_obj.payment_status = "paid"
             client_obj.payment_date = timezone.now()
             client_obj.save(update_fields=["payment_status", "payment_date"])
+            logger.info("[WEBHOOK] Client marked as paid, payment_date=%s", client_obj.payment_date)
 
             if client_obj.plan != 1:
                 client_obj.active = True
                 client_obj.save(update_fields=["active"])
+                logger.info("[WEBHOOK] Client set to active (plan != 1)")
 
                 active_client = Clinet_Coach.objects.get(
                     client=client_obj,
                     coach=client_obj.coach
                 )
+                logger.info("[WEBHOOK] Fetched active_client record id=%s", active_client.id)
                 active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                 coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 coach_revenue_obj.save()
+                logger.info("[WEBHOOK] Coach revenue updated: us_revenue=%s (created=%s)", coach_revenue_obj.us_revenue, _created)
 
                 active_client.start_date = timezone.now() + timezone.timedelta(days=7)
                 active_client.active = True
                 active_client.location = "international"
                 active_client.save()
-            
+                logger.info("[WEBHOOK] active_client saved: start_date=%s location=international", active_client.start_date)
+
 
             finance = Finance_details.objects.filter(
                 client=client_obj,
                 location="international"
             ).order_by('-start_date', '-id').first()
+            logger.info("[WEBHOOK] Finance record fetched: %s", finance)
             finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(amount_paid))
             finance.coach = client_obj.coach
             finance.payment_status = "paid"
+            logger.info("[WEBHOOK] Finance updated: amount_paid=%s coach=%s", finance.amount_paid, finance.coach)
+
             if client_obj.plan == 1:
+                logger.info("[WEBHOOK] Plan 1 — Consultation Call")
                 finance.end_date = timezone.now()
                 finance.plan = "Consultation Call"
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultation call", amount=amount_paid, currency="USD")
+                logger.info("[WEBHOOK] send_plan_mail dispatched for consultation call")
                 try:
                     send_admin_mail.delay(
                         client_name=client_obj.name,
@@ -956,33 +989,41 @@ def payment_webhook(request):
                         amount=amount_paid,
                         currency="USD"
                     )
+                    logger.info("[WEBHOOK] send_admin_mail dispatched for consultation call")
                 except Exception as e:
-                    print(f"send_admin_mail failed: {e}")
+                    logger.error("[WEBHOOK] send_admin_mail failed: %s", e)
                 send_test_message(
                     f"New consultation call: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
                 )
+                logger.info("[WEBHOOK] send_test_message sent for consultation call")
                 active_client = Clinet_Coach.objects.get(
                     client=client_obj,
                     coach=client_obj.coach
                 )
                 active_client.us_revenue = (active_client.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 active_client.save()
+                logger.info("[WEBHOOK] active_client us_revenue updated=%s", active_client.us_revenue)
                 coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
                 coach_revenue_obj.us_revenue = (coach_revenue_obj.us_revenue or Decimal('0')) + Decimal(str(amount_paid))
                 coach_revenue_obj.save()
+                logger.info("[WEBHOOK] Coach revenue updated for plan 1: us_revenue=%s", coach_revenue_obj.us_revenue)
 
                 Notification.objects.create(
                     message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. "
                             f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
                 )
+                logger.info("[WEBHOOK] Notification created for consultation call")
 
             elif client_obj.plan == 2:
+                logger.info("[WEBHOOK] Plan 2 — 12 Weeks")
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
                 finance.plan = "12 Weeks"
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
                 active_client.save()
+                logger.info("[WEBHOOK] active_client end_date=%s", active_client.end_date)
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=amount_paid, currency="USD")
+                logger.info("[WEBHOOK] send_plan_mail dispatched for 12 weeks")
                 try:
                     send_admin_mail.delay(
                         client_name=client_obj.name,
@@ -991,23 +1032,29 @@ def payment_webhook(request):
                         amount=amount_paid,
                         currency="USD"
                     )
+                    logger.info("[WEBHOOK] send_admin_mail dispatched for 12 weeks")
                 except Exception as e:
-                    print(f"send_admin_mail failed: {e}")
+                    logger.error("[WEBHOOK] send_admin_mail failed: %s", e)
                 send_test_message(
                     f"New 12 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
                 )
+                logger.info("[WEBHOOK] send_test_message sent for 12 weeks")
                 Notification.objects.create(
                     message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. "
                             f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
                 )
+                logger.info("[WEBHOOK] Notification created for 12 week plan")
 
             elif client_obj.plan == 3:
+                logger.info("[WEBHOOK] Plan 3 — 24 Weeks")
                 finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
                 finance.plan = "24 Weeks"
                 active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
                 active_client.save()
+                logger.info("[WEBHOOK] active_client end_date=%s", active_client.end_date)
                 send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=amount_paid, currency="USD")
+                logger.info("[WEBHOOK] send_plan_mail dispatched for 24 weeks")
                 try:
                     send_admin_mail.delay(
                         client_name=client_obj.name,
@@ -1016,30 +1063,36 @@ def payment_webhook(request):
                         amount=amount_paid,
                         currency="USD"
                     )
+                    logger.info("[WEBHOOK] send_admin_mail dispatched for 24 weeks")
                 except Exception as e:
-                    print(f"send_admin_mail failed: {e}")
-                #send_admin_mail.delay(client_name=client_obj.name, plan_name="24 weeks plan", coach = client_obj.coach.name,  amount=amount_paid, currency="USD")   
+                    logger.error("[WEBHOOK] send_admin_mail failed: %s", e)
                 send_test_message(
                     f"New 24 week plan: {client_obj.name} ({client_obj.email}), "
                     f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}"
                 )
+                logger.info("[WEBHOOK] send_test_message sent for 24 weeks")
                 Notification.objects.create(
                     message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. "
                             f"Coach: {client_obj.coach.name}, Amount: USD {amount_paid}",
                 )
+                logger.info("[WEBHOOK] Notification created for 24 week plan")
 
             finance.save()
+            logger.info("[WEBHOOK] Finance record saved")
 
+            logger.info("[WEBHOOK] Payment captured and client updated — returning 200")
             return JsonResponse(
                 {"message": "Payment captured and client updated"},
                 status=200
             )
 
         # already marked paid
+        logger.info("[WEBHOOK] Payment already processed for client_id=%s — returning 200", client_id)
         return JsonResponse({"message": "Payment already processed"}, status=200)
-    
+
 
     # ---- Fallback ----
+    logger.info("[WEBHOOK] Unhandled payment_status=%s for client_id=%s — returning 200", payment_status, client_id)
     return JsonResponse({"message": "Payment status unhandled"}, status=200)
 
 
@@ -1715,33 +1768,39 @@ class CashfreeWebhookView(View):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        logger.info("[CF_WEBHOOK] CashfreeWebhookView.post called")
+
         raw = request.body
-        print("raw", raw)
+        logger.info("[CF_WEBHOOK] raw body: %s", raw)
+
         timestamp_header = request.headers.get("x-webhook-timestamp")
         sig = request.headers.get("x-webhook-signature")
-        print("headers", request.headers)
+        logger.info("[CF_WEBHOOK] headers: %s", dict(request.headers))
+        logger.info("[CF_WEBHOOK] timestamp_header=%s sig=%s", timestamp_header, sig)
+
         computed_sig = _compute_signature(timestamp_header, raw, settings.CASHFREE_SECRET_KEY)
+        logger.info("[CF_WEBHOOK] computed_sig=%s", computed_sig)
+
         if hmac.compare_digest(computed_sig, sig):
-            print("Signature verified ==================== ")
+            logger.info("[CF_WEBHOOK] Signature verified successfully")
         if not hmac.compare_digest(computed_sig, sig):
-            print("computed_sig", computed_sig)
-            print("sig", sig)
-            print("Signature mismatch")
+            logger.warning("[CF_WEBHOOK] Signature mismatch — computed=%s received=%s", computed_sig, sig)
             return JsonResponse({"message": "Invalid signature"}, status=400)
+
         # Parse JSON
         try:
             payload = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
+            logger.error("[CF_WEBHOOK] Failed to parse JSON body")
             return JsonResponse({"message": "Invalid JSON"}, status=400)
+
+        logger.info("[CF_WEBHOOK] JSON parsed successfully")
 
         # Dashboard test pings sometimes include a simple marker
         data = payload.get("data") or {}
         if isinstance(data, dict) and data.get("test_object"):
+            logger.info("[CF_WEBHOOK] Test webhook ping received — returning 200")
             return JsonResponse({"message": "Test Webhook received"}, status=200)
-
-        # Verify signature for real events BEFORE doing anything
-        #if not sig or not verify_signature(raw, sig):
-        #    return JsonResponse({"message": "Invalid signature"}, status=400)
 
         event_type = payload.get("type")  # e.g. PAYMENT_SUCCESS_WEBHOOK
         order = data.get("order") or {}
@@ -1755,6 +1814,9 @@ class CashfreeWebhookView(View):
         cf_payment_id= payment.get("cf_payment_id")
         p_msg        = payment.get("payment_message")
 
+        logger.info("[CF_WEBHOOK] event_type=%s order_id=%s order_amt=%s order_cur=%s p_status=%s cf_payment_id=%s",
+                     event_type, order_id, order_amt, order_cur, p_status, cf_payment_id)
+
         # Map client id from order_id like "client_<id>_..."
         client_obj = None
         client_id = None
@@ -1765,60 +1827,67 @@ class CashfreeWebhookView(View):
                 from admin_functions.models import ClientDetails  # adjust import path
                 client_obj = ClientDetails.objects.filter(id=client_id).first()
 
+        logger.info("[CF_WEBHOOK] Resolved client_id=%s client_obj=%s", client_id, client_obj)
+
         # Handle statuses
         if event_type == "PAYMENT_SUCCESS_WEBHOOK" or p_status == "SUCCESS":
+            logger.info("[CF_WEBHOOK] Processing SUCCESS payment for client_id=%s", client_id)
+
             if client_obj and getattr(client_obj, "payment_status", None) != "paid":
                 client_obj.payment_status = "paid"
-                print("Client marked as paid")
+                logger.info("[CF_WEBHOOK] Client marked as paid")
                 client_obj.save(update_fields=["payment_status"])
-                print("Client saved after marking paid")
+                logger.info("[CF_WEBHOOK] Client saved after marking paid")
                 client_obj.payment_date = timezone.now()
-                print("Payment date set")
+                logger.info("[CF_WEBHOOK] Payment date set to %s", client_obj.payment_date)
+
                 if client_obj.plan != 1:
-                    print("Non-consultation plan processing")
+                    logger.info("[CF_WEBHOOK] Non-consultation plan (plan=%s) processing", client_obj.plan)
 
                     client_obj.active = True
-                    print("Client set to active")
+                    logger.info("[CF_WEBHOOK] Client set to active")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                    logger.info("[CF_WEBHOOK] Fetched active_client id=%s", active_client.id)
 
                     active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
-                    print("Active client revenue updated")
+                    logger.info("[CF_WEBHOOK] active_client inr_revenue updated to %s", active_client.inr_revenue)
                     coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
-                    
-                        
+
                     coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
-                    print("Coach revenue updated")
+                    logger.info("[CF_WEBHOOK] Coach revenue updated: inr_revenue=%s (created=%s)", coach_revenue_obj.inr_revenue, _created)
                     coach_revenue_obj.save()
                     active_client.start_date = timezone.now() + timezone.timedelta(days=7)
-                    #active_client.start_date = timezone.now() + 7 days
-                    #active_client.end_date = active_client.start_date + relativedelta(months=client_obj.plan)
-                    #active_client.end_date = active_client.start_date + timezone.timedelta(weeks=client_obj.plan*12)
 
                     active_client.active = True
                     active_client.location = "domestic"
                     active_client.save()
-                    #print(active_client)
-                    print("Active client saved")
+                    logger.info("[CF_WEBHOOK] active_client saved: start_date=%s location=domestic", active_client.start_date)
                     # ======================== delete client_coach if revenue is zero
-                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()                
+
+                finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()
+                logger.info("[CF_WEBHOOK] Finance record fetched: %s", finance)
                 finance.amount_paid = (finance.amount_paid or Decimal('0')) + Decimal(str(order_amt))
                 finance.coach = client_obj.coach
                 finance.payment_status = "paid"
+                logger.info("[CF_WEBHOOK] Finance updated: amount_paid=%s coach=%s", finance.amount_paid, finance.coach)
+
                 if client_obj.plan == 1:
-                    print("Consultation plan processing")
+                    logger.info("[CF_WEBHOOK] Plan 1 — Consultation Call")
                     finance.end_date = timezone.now()
                     finance.plan = "Consultation Call"
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+                    logger.info("[CF_WEBHOOK] Fetched active_client for consultation: id=%s", active_client.id)
 
                     active_client.inr_revenue = (active_client.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     active_client.save()
+                    logger.info("[CF_WEBHOOK] active_client inr_revenue updated=%s", active_client.inr_revenue)
                     coach_revenue_obj, _created = CoachRevenue.objects.get_or_create(coach=client_obj.coach)
-                    
-                        
+
                     coach_revenue_obj.inr_revenue = (coach_revenue_obj.inr_revenue or Decimal('0')) + Decimal(str(order_amt))
                     coach_revenue_obj.save()
-                    print("Finance end date set to now for consultation plan")
+                    logger.info("[CF_WEBHOOK] Coach revenue updated for consultation: inr_revenue=%s", coach_revenue_obj.inr_revenue)
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultaion call", amount=order_amt, currency="INR")
+                    logger.info("[CF_WEBHOOK] send_plan_mail dispatched for consultation")
                     try:
                         send_admin_mail.delay(
                             client_name=client_obj.name,
@@ -1827,28 +1896,26 @@ class CashfreeWebhookView(View):
                             amount=order_amt,
                             currency="INR"
                         )
+                        logger.info("[CF_WEBHOOK] send_admin_mail dispatched for consultation")
                     except Exception as e:
-                        print(f"send_admin_mail failed: {e}")
-                    #send_admin_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="consultaion call", amount=order_amt, currency="INR")
-                    print("Plan mail sent for consultation")
+                        logger.error("[CF_WEBHOOK] send_admin_mail failed: %s", e)
                     send_test_message(f"New consultaion call: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
-                    print("Test message sent for consultation")
+                    logger.info("[CF_WEBHOOK] send_test_message sent for consultation")
                     Notification.objects.create(
-                
                         message=f"{client_obj.name} ({client_obj.email}) booked a consultation call. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
-                        
                     )
-                    print("Notification created for consultation")
+                    logger.info("[CF_WEBHOOK] Notification created for consultation")
+
                 elif client_obj.plan == 2:
-                    print("12 weeks plan processing")
+                    logger.info("[CF_WEBHOOK] Plan 2 — 12 Weeks")
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=12)
                     finance.plan = "12 Weeks"
-                    print("Finance end date set for 12 weeks plan")
+                    logger.info("[CF_WEBHOOK] Finance end_date set for 12 weeks")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=12)
-                    print("Active client end date set for 12 weeks plan")
+                    logger.info("[CF_WEBHOOK] active_client end_date=%s", active_client.end_date)
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
-                    #send_admin_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="12 weeks plan", amount=order_amt, currency="INR")
+                    logger.info("[CF_WEBHOOK] send_plan_mail dispatched for 12 weeks")
                     try:
                         send_admin_mail.delay(
                             client_name=client_obj.name,
@@ -1857,27 +1924,27 @@ class CashfreeWebhookView(View):
                             amount=order_amt,
                             currency="INR"
                         )
+                        logger.info("[CF_WEBHOOK] send_admin_mail dispatched for 12 weeks")
                     except Exception as e:
-                        print(f"send_admin_mail failed: {e}")
-                    print("Plan mail sent for 12 weeks plan")
+                        logger.error("[CF_WEBHOOK] send_admin_mail failed: %s", e)
                     send_test_message(f"New 12 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
-                    print("Test message sent for 12 weeks plan")
+                    logger.info("[CF_WEBHOOK] send_test_message sent for 12 weeks")
                     Notification.objects.create(
-                        
                         message=f"{client_obj.name} ({client_obj.email}) purchased a 12 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
-                        
                     )
-                    print("Notification created for 12 weeks plan")
+                    logger.info("[CF_WEBHOOK] Notification created for 12 week plan")
+
                 elif client_obj.plan == 3:
-                    print("24 weeks plan processing")
+                    logger.info("[CF_WEBHOOK] Plan 3 — 24 Weeks")
                     finance.end_date = timezone.now() + timezone.timedelta(weeks=24)
                     finance.plan = "24 Weeks"
-                    print("Finance end date set for 24 weeks plan")
+                    logger.info("[CF_WEBHOOK] Finance end_date set for 24 weeks")
                     active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
-                    print("Active client fetched for 24 weeks plan")
+                    logger.info("[CF_WEBHOOK] Fetched active_client for 24 weeks: id=%s", active_client.id)
                     active_client.end_date = active_client.start_date + timezone.timedelta(weeks=24)
-                    print("Active client end date set for 24 weeks plan")
+                    logger.info("[CF_WEBHOOK] active_client end_date=%s", active_client.end_date)
                     send_plan_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
+                    logger.info("[CF_WEBHOOK] send_plan_mail dispatched for 24 weeks")
                     try:
                         send_admin_mail.delay(
                             client_name=client_obj.name,
@@ -1886,35 +1953,40 @@ class CashfreeWebhookView(View):
                             amount=order_amt,
                             currency="INR"
                         )
+                        logger.info("[CF_WEBHOOK] send_admin_mail dispatched for 24 weeks")
                     except Exception as e:
-                        print(f"send_admin_mail failed: {e}")
-                    #send_admin_mail.delay(client_name=client_obj.name, client_email=client_obj.email, coach = client_obj.coach.name, plan_name="24 weeks plan", amount=order_amt, currency="INR")
-                    print("Plan mail sent for 24 weeks plan")
+                        logger.error("[CF_WEBHOOK] send_admin_mail failed: %s", e)
                     send_test_message(f"New 24 week plan: {client_obj.name} ({client_obj.email}), Coach: {client_obj.coach.name}, Amount: INR {order_amt}")
-                    print("Test message sent for 24 weeks plan")
+                    logger.info("[CF_WEBHOOK] send_test_message sent for 24 weeks")
                     Notification.objects.create(
-                        
                         message=f"{client_obj.name} ({client_obj.email}) purchased a 24 week plan. Coach: {client_obj.coach.name}, Amount: INR {order_amt}",
-                        
                     )
-                    print("Notification created for 24 weeks plan")
+                    logger.info("[CF_WEBHOOK] Notification created for 24 week plan")
+
                 finance.save()
                 client_obj.save()
-                log.info("Client %s marked PAID (amount=%s %s, cf_payment_id=%s)",
+                logger.info("[CF_WEBHOOK] Finance saved, client saved — client_id=%s amount=%s %s cf_payment_id=%s",
                          client_id, order_amt, order_cur, cf_payment_id)
+            else:
+                logger.info("[CF_WEBHOOK] Client not found or already paid — client_id=%s", client_id)
+
             return JsonResponse({"ok": True}, status=200)
 
         if event_type in {"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"} or p_status in {"FAILED", "USER_DROPPED"}:
-            log.info("Payment not completed: status=%s msg=%s cf_payment_id=%s", p_status, p_msg, cf_payment_id)
+            logger.info("[CF_WEBHOOK] Payment not completed: status=%s msg=%s cf_payment_id=%s", p_status, p_msg, cf_payment_id)
             finance = Finance_details.objects.filter(client=client_obj, location="domestic").order_by('-start_date', '-id').first()
+            logger.info("[CF_WEBHOOK] Finance record for failed payment: %s", finance)
             active_client = Clinet_Coach.objects.get(client=client_obj,coach=client_obj.coach)
+            logger.info("[CF_WEBHOOK] active_client: inr_revenue=%s us_revenue=%s", active_client.inr_revenue, active_client.us_revenue)
             if not active_client.inr_revenue or not active_client.us_revenue:
+                logger.info("[CF_WEBHOOK] No revenue recorded — deleting active_client reference")
                 del active_client
-            
+
             del finance
+            logger.info("[CF_WEBHOOK] Payment failed/dropped — returning 200")
             return JsonResponse({"ok": True}, status=200)
 
-        log.warning("Unhandled webhook type: %s", event_type)
+        logger.warning("[CF_WEBHOOK] Unhandled webhook type: %s", event_type)
         return JsonResponse({"ok": True, "note": "Unhandled type"}, status=200)
     
 
